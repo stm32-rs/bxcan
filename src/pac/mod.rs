@@ -4,6 +4,6 @@
 use core::marker::PhantomData;
 use core::ops::Deref;
 
-pub mod generic;
 #[doc = "Controller area network"]
 pub mod can;
+pub mod generic;

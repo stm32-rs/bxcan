@@ -1,8 +1,7 @@
 use core::marker::PhantomData;
 
 use crate::pac::can::RegisterBlock;
-use crate::{Id, IdReg, Instance, bb};
-
+use crate::{bb, Id, IdReg, Instance};
 
 /// Filter with an optional mask.
 pub struct Filter {

@@ -8,7 +8,7 @@ pub struct StandardId(u16);
 
 impl StandardId {
     /// Tries to create a `StandardId` from a raw 16-bit integer.
-    /// 
+    ///
     /// This will return `None` if `raw` is out of range of an 11-bit integer (`> 0x7FF`).
     #[inline]
     pub const fn new(raw: u16) -> Option<Self> {
@@ -38,7 +38,7 @@ pub struct ExtendedId(u32);
 
 impl ExtendedId {
     /// Tries to create a `ExtendedId` from a raw 32-bit integer.
-    /// 
+    ///
     /// This will return `None` if `raw` is out of range of an 29-bit integer (`> 0x1FFF_FFFF`).
     #[inline]
     pub const fn new(raw: u32) -> Option<Self> {

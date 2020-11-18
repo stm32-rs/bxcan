@@ -1,22 +1,20 @@
 //! Driver for the STM32 bxCAN peripheral.
 
 #![doc(html_root_url = "https://docs.rs/bxcan/0.0.0")]
-
 // Deny a few warnings in doctests, since rustdoc `allow`s many warnings by default
 #![doc(test(attr(deny(unused_imports, unused_must_use))))]
-
 #![no_std]
 
 mod bb;
-mod readme;
+mod filter;
+mod frame;
 mod id;
 mod pac;
-mod frame;
-mod filter;
+mod readme;
 
 pub use crate::filter::{Filter, Filters};
 pub use crate::frame::Frame;
-pub use crate::id::{StandardId, ExtendedId, Id};
+pub use crate::id::{ExtendedId, Id, StandardId};
 
 use crate::pac::can::RegisterBlock;
 use core::cmp::{Ord, Ordering};
@@ -28,14 +26,14 @@ use frame::Data;
 use self::pac::generic::*; // To make the PAC extraction build
 
 /// A bxCAN peripheral instance.
-/// 
+///
 /// This trait is meant to be implemented for a HAL-specific type that represent ownership of
 /// the CAN peripheral (and any pins required by it, although that is entirely up to the HAL).
-/// 
+///
 /// # Safety
-/// 
+///
 /// It is only safe to implement this trait, when:
-/// 
+///
 /// * The implementing type has ownership of the peripheral, preventing any other accesses to the
 ///   register block.
 /// * `REGISTERS` is a pointer to that peripheral's register block and can be safely accessed for as
@@ -130,7 +128,9 @@ impl IdReg {
         if self.is_extended() {
             Id::Extended(unsafe { ExtendedId::new_unchecked(self.0 >> Self::EXTENDED_SHIFT) })
         } else {
-            Id::Standard(unsafe { StandardId::new_unchecked((self.0 >> Self::STANDARD_SHIFT) as u16) })
+            Id::Standard(unsafe {
+                StandardId::new_unchecked((self.0 >> Self::STANDARD_SHIFT) as u16)
+            })
         }
     }
 
@@ -162,16 +162,20 @@ impl Ord for IdReg {
                 // Lower IDs have priority over higher IDs.
                 a.as_raw().cmp(&b.as_raw()).reverse().then(rtr)
             }
-            (Id::Extended(a), Id::Extended(b)) => {
-                a.as_raw().cmp(&b.as_raw()).reverse().then(rtr)
-            }
+            (Id::Extended(a), Id::Extended(b)) => a.as_raw().cmp(&b.as_raw()).reverse().then(rtr),
             (Id::Standard(a), Id::Extended(b)) => {
                 // Standard frames have priority over extended frames if their Base IDs match.
-                a.as_raw().cmp(&b.standard_id().as_raw()).reverse().then(Ordering::Greater)
+                a.as_raw()
+                    .cmp(&b.standard_id().as_raw())
+                    .reverse()
+                    .then(Ordering::Greater)
             }
-            (Id::Extended(a), Id::Standard(b)) => {
-                a.standard_id().as_raw().cmp(&b.as_raw()).reverse().then(Ordering::Less)
-            }
+            (Id::Extended(a), Id::Standard(b)) => a
+                .standard_id()
+                .as_raw()
+                .cmp(&b.as_raw())
+                .reverse()
+                .then(Ordering::Less),
         }
     }
 }
@@ -430,11 +434,18 @@ where
         debug_assert!(idx < 3);
         let mb = unsafe { &can.tx.get_unchecked(idx) };
 
-        mb.tdtr.write(|w| unsafe { w.dlc().bits(frame.dlc() as u8) });
-        mb.tdlr
-            .write(|w| unsafe { w.bits(u32::from_ne_bytes(frame.data.bytes[0..4].try_into().unwrap())) });
-        mb.tdhr
-            .write(|w| unsafe { w.bits(u32::from_ne_bytes(frame.data.bytes[4..8].try_into().unwrap())) });
+        mb.tdtr
+            .write(|w| unsafe { w.dlc().bits(frame.dlc() as u8) });
+        mb.tdlr.write(|w| unsafe {
+            w.bits(u32::from_ne_bytes(
+                frame.data.bytes[0..4].try_into().unwrap(),
+            ))
+        });
+        mb.tdhr.write(|w| unsafe {
+            w.bits(u32::from_ne_bytes(
+                frame.data.bytes[4..8].try_into().unwrap(),
+            ))
+        });
         mb.tir
             .write(|w| unsafe { w.bits(frame.id.0).txrq().set_bit() });
     }

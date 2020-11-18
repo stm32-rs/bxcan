@@ -89,12 +89,12 @@ impl Frame {
 }
 
 /// Priority of a CAN frame.
-/// 
+///
 /// The priority of a frame is determined by the bits that are part of the *arbitration field*.
 /// These consist of the frame identifier bits (including the *IDE* bit, which is 0 for extended
 /// frames and 1 for standard frames), as well as the *RTR* bit, which determines whether a frame
 /// is a data or remote frame. Lower values of the *arbitration field* have higher priority.
-/// 
+///
 /// This struct wraps the *arbitration field* and implements `PartialOrd` and `Ord` accordingly,
 /// ordering higher priorities greater than lower ones.
 #[derive(Debug, Copy, Clone)]
@@ -125,7 +125,7 @@ impl Eq for FramePriority {}
 /// Payload of a CAN data frame.
 ///
 /// Contains 0 to 8 Bytes of data.
-/// 
+///
 /// `Data` implements `From<[u8; N]>` for all `N` up to 8, which provides a convenient lossless
 /// conversion from fixed-length arrays.
 #[derive(Debug, Copy, Clone)]
