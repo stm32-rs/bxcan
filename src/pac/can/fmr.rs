@@ -10,6 +10,20 @@ impl crate::ResetValue for super::FMR {
         0
     }
 }
+#[doc = "Reader of field `CAN2SB`"]
+pub type CAN2SB_R = crate::R<u8, u8>;
+#[doc = "Write proxy for field `CAN2SB`"]
+pub struct CAN2SB_W<'a> {
+    w: &'a mut W,
+}
+impl<'a> CAN2SB_W<'a> {
+    #[doc = r"Writes raw bits to the field"]
+    #[inline(always)]
+    pub unsafe fn bits(self, value: u8) -> &'a mut W {
+        self.w.bits = (self.w.bits & !(0x3f << 8)) | (((value as u32) & 0x3f) << 8);
+        self.w
+    }
+}
 #[doc = "Reader of field `FINIT`"]
 pub type FINIT_R = crate::R<bool, bool>;
 #[doc = "Write proxy for field `FINIT`"]
@@ -35,6 +49,11 @@ impl<'a> FINIT_W<'a> {
     }
 }
 impl R {
+    #[doc = "Bits 8:13 - CAN2SB"]
+    #[inline(always)]
+    pub fn can2sb(&self) -> CAN2SB_R {
+        CAN2SB_R::new(((self.bits >> 8) & 0x3f) as u8)
+    }
     #[doc = "Bit 0 - FINIT"]
     #[inline(always)]
     pub fn finit(&self) -> FINIT_R {
@@ -42,6 +61,11 @@ impl R {
     }
 }
 impl W {
+    #[doc = "Bits 8:13 - CAN2SB"]
+    #[inline(always)]
+    pub fn can2sb(&mut self) -> CAN2SB_W {
+        CAN2SB_W { w: self }
+    }
     #[doc = "Bit 0 - FINIT"]
     #[inline(always)]
     pub fn finit(&mut self) -> FINIT_W {
