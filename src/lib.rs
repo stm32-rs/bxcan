@@ -15,8 +15,8 @@ mod readme;
 pub use crate::filter::{Filter, Filters};
 pub use crate::frame::Frame;
 pub use crate::id::{ExtendedId, Id, StandardId};
+pub use crate::pac::can::RegisterBlock;
 
-use crate::pac::can::RegisterBlock;
 use core::cmp::{Ord, Ordering};
 use core::convert::{Infallible, TryInto};
 use core::marker::PhantomData;
