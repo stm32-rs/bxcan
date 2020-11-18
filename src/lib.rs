@@ -43,6 +43,40 @@ pub unsafe trait Instance {
     const REGISTERS: *mut RegisterBlock;
 }
 
+/// A bxCAN instance that owns filter banks.
+/// 
+/// In master-slave-instance setups, only the master instance owns the filter banks, and needs to
+/// split some of them off for use by the slave instance. In that case, the master instance should
+/// implement `FilterOwner` and `MasterInstance`, while the slave instance should only implement
+/// `Instance`.
+/// 
+/// In single-instance configurations, the instance owns all filter banks and they can not be split
+/// off. In that case, the instance should implement `Instance` and `FilterOwner`.
+/// 
+/// # Safety
+/// 
+/// This trait must only be implemented if the instance does, in fact, own its associated filter
+/// banks, and `NUM_FILTER_BANKS` must be correct.
+pub unsafe trait FilterOwner: Instance {
+    /// The total number of filter banks available to the instance.
+    /// 
+    /// This is usually either 14 or 28, and should be specified in the chip's reference manual or
+    /// datasheet.
+    const NUM_FILTER_BANKS: usize;
+}
+
+/// A bxCAN master instance that shares filter banks with a slave instance.
+/// 
+/// In master-slave-instance setups, this trait should be implemented for the master instance.
+/// 
+/// # Safety
+/// 
+/// This trait must only be implemented when `Self::Slave` is actually the associated slave instance
+/// of `Self`.
+pub unsafe trait MasterInstance: FilterOwner {
+    type Slave: Instance;
+}
+
 // TODO: what to do with these?
 /*#[derive(Debug, Copy, Clone, Eq, PartialEq, Format)]
 #[non_exhaustive]
@@ -224,7 +258,7 @@ where
     }
 }
 
-/// Interface to the CAN peripheral.
+/// Interface to a CAN peripheral.
 pub struct Can<I: Instance> {
     _can: PhantomData<I>,
     tx: Option<Tx<I>>,
@@ -338,6 +372,112 @@ where
     /// Only the first calls returns a valid receiver. Subsequent calls return `None`.
     pub fn take_rx(&mut self, _filters: Filters<I>) -> Option<Rx<I>> {
         self.rx.take()
+    }
+}
+
+impl<I: FilterOwner> Can<I> {
+    /// Returns the filter part of the CAN peripheral.
+    ///
+    /// Filters are required for the receiver to accept any messages at all.
+    pub fn take_filters(&mut self) -> Option<Filters<I>> {
+        // Set all filter banks to 32bit scale and mask mode.
+        // Filters are alternating between between the FIFO0 and FIFO1 to share the
+        // load equally.
+        self.split_filters_internal(0x0000_0000, 0xFFFF_FFFF, 0xAAAA_AAAA, None)?;
+        Some(unsafe { Filters::new(0, I::NUM_FILTER_BANKS) })
+    }
+
+    /// Advanced version of [`take_filters()`].
+    ///
+    /// The additional parameters are bitmasks configure the filter banks.
+    /// Bit 0 for filter bank 0, bit 1 for filter bank 1 and so on.
+    /// `fm1r` in combination with `fs1r` sets the filter bank layout. The correct
+    /// `Filters::add_*()` function must be used.
+    /// `ffa1r` selects the FIFO the filter uses to store accepted messages.
+    /// More details can be found in  the reference manual (Section 24.7.4
+    /// Identifier filtering, Filter bank scale and mode configuration).
+    /// 
+    /// [`take_filters()`]: #method.take_filters
+    pub fn take_filters_advanced(
+        &mut self,
+        fm1r: u32,
+        fs1r: u32,
+        ffa1r: u32,
+    ) -> Option<Filters<I>> {
+        self.split_filters_internal(fm1r, fs1r, ffa1r, None)?;
+        Some(unsafe { Filters::new(0, I::NUM_FILTER_BANKS) })
+    }
+
+    fn split_filters_internal(
+        &mut self,
+        fm1r: u32,
+        fs1r: u32,
+        ffa1r: u32,
+        split_idx: Option<usize>,
+    ) -> Option<()> {
+        let can = self.registers();
+
+        if can.fmr.read().finit().bit_is_clear() {
+            return None;
+        }
+
+        can.fm1r.write(|w| unsafe { w.bits(fm1r) });
+        can.fs1r.write(|w| unsafe { w.bits(fs1r) });
+        can.ffa1r.write(|w| unsafe { w.bits(ffa1r) });
+
+        // Init filter banks. Each used filter must still be enabled individually.
+        can.fmr.modify(|_, w| unsafe {
+            if let Some(split_idx) = split_idx {
+                w.can2sb().bits(split_idx as u8);
+            }
+            w.finit().clear_bit()
+        });
+
+        Some(())
+    }
+}
+
+impl<I: MasterInstance> Can<I> {
+    /// Returns the filter part of the CAN peripheral.
+    ///
+    /// Filters are required for the receiver to accept any messages at all.
+    /// `split_idx` can be in the range `0..NUM_FILTER_BANKS` and decides the number
+    /// of filters assigned to each peripheral. A value of `0` means all filter
+    /// banks are used for CAN2 while `NUM_FILTER_BANKS` reserves all filter banks
+    /// for CAN1.
+    pub fn split_filters(&mut self, split_idx: usize) -> Option<(Filters<I>, Filters<I::Slave>)> {
+        // Set all filter banks to 32bit scale and mask mode.
+        // Filters are alternating between between the FIFO0 and FIFO1 to share the
+        // load equally.
+        self.split_filters_internal(0x0000_0000, 0xFFFF_FFFF, 0xAAAA_AAAA, Some(split_idx))?;
+        Some((
+            unsafe { Filters::new(0, split_idx) },
+            unsafe { Filters::new(split_idx, I::NUM_FILTER_BANKS) },
+        ))
+    }
+
+    /// Advanced version of [`split_filters()`].
+    ///
+    /// The additional parameters are bitmasks to configure the filter banks.
+    /// Bit 0 for filter bank 0, bit 1 for filter bank 1 and so on.
+    /// `fm1r` in combination with `fs1r` sets the filter bank layout. The correct
+    /// `Filters::add_*()` function must be used.
+    /// `ffa1r` selects the FIFO the filter uses to store accepted messages.
+    /// More details can be found in the reference manual of the device.
+    /// 
+    /// [`split_filters()`]: #method.split_filters
+    pub fn split_filters_advanced(
+        &mut self,
+        fm1r: u32,
+        fs1r: u32,
+        ffa1r: u32,
+        split_idx: usize,
+    ) -> Option<(Filters<I>, Filters<I::Slave>)> {
+        self.split_filters_internal(fm1r, fs1r, ffa1r, Some(split_idx))?;
+        Some((
+            unsafe { Filters::new(0, split_idx) },
+            unsafe { Filters::new(split_idx, I::NUM_FILTER_BANKS) },
+        ))
     }
 }
 
