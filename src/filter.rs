@@ -95,7 +95,7 @@ impl<I> Filters<I>
 where
     I: Instance,
 {
-    pub(crate) unsafe fn new(start_idx: usize, stop_idx: usize) -> Self {
+    pub unsafe fn new(start_idx: usize, stop_idx: usize) -> Self {
         Self {
             start_idx,
             stop_idx,
