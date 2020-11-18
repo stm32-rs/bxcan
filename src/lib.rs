@@ -44,33 +44,33 @@ pub unsafe trait Instance {
 }
 
 /// A bxCAN instance that owns filter banks.
-/// 
+///
 /// In master-slave-instance setups, only the master instance owns the filter banks, and needs to
 /// split some of them off for use by the slave instance. In that case, the master instance should
 /// implement `FilterOwner` and `MasterInstance`, while the slave instance should only implement
 /// `Instance`.
-/// 
+///
 /// In single-instance configurations, the instance owns all filter banks and they can not be split
 /// off. In that case, the instance should implement `Instance` and `FilterOwner`.
-/// 
+///
 /// # Safety
-/// 
+///
 /// This trait must only be implemented if the instance does, in fact, own its associated filter
 /// banks, and `NUM_FILTER_BANKS` must be correct.
 pub unsafe trait FilterOwner: Instance {
     /// The total number of filter banks available to the instance.
-    /// 
+    ///
     /// This is usually either 14 or 28, and should be specified in the chip's reference manual or
     /// datasheet.
     const NUM_FILTER_BANKS: usize;
 }
 
 /// A bxCAN master instance that shares filter banks with a slave instance.
-/// 
+///
 /// In master-slave-instance setups, this trait should be implemented for the master instance.
-/// 
+///
 /// # Safety
-/// 
+///
 /// This trait must only be implemented when `Self::Slave` is actually the associated slave instance
 /// of `Self`.
 pub unsafe trait MasterInstance: FilterOwner {
@@ -287,7 +287,7 @@ where
     }
 
     /// Returns a reference to the peripheral instance.
-    /// 
+    ///
     /// This allows accessing HAL-specific data stored in the instance type.
     pub fn instance(&mut self) -> &mut I {
         &mut self.instance
@@ -403,7 +403,7 @@ impl<I: FilterOwner> Can<I> {
     /// `ffa1r` selects the FIFO the filter uses to store accepted messages.
     /// More details can be found in  the reference manual (Section 24.7.4
     /// Identifier filtering, Filter bank scale and mode configuration).
-    /// 
+    ///
     /// [`take_filters()`]: #method.take_filters
     pub fn take_filters_advanced(
         &mut self,
@@ -457,10 +457,9 @@ impl<I: MasterInstance> Can<I> {
         // Filters are alternating between between the FIFO0 and FIFO1 to share the
         // load equally.
         self.split_filters_internal(0x0000_0000, 0xFFFF_FFFF, 0xAAAA_AAAA, Some(split_idx))?;
-        Some((
-            unsafe { Filters::new(0, split_idx) },
-            unsafe { Filters::new(split_idx, I::NUM_FILTER_BANKS) },
-        ))
+        Some((unsafe { Filters::new(0, split_idx) }, unsafe {
+            Filters::new(split_idx, I::NUM_FILTER_BANKS)
+        }))
     }
 
     /// Advanced version of [`split_filters()`].
@@ -471,7 +470,7 @@ impl<I: MasterInstance> Can<I> {
     /// `Filters::add_*()` function must be used.
     /// `ffa1r` selects the FIFO the filter uses to store accepted messages.
     /// More details can be found in the reference manual of the device.
-    /// 
+    ///
     /// [`split_filters()`]: #method.split_filters
     pub fn split_filters_advanced(
         &mut self,
@@ -481,10 +480,9 @@ impl<I: MasterInstance> Can<I> {
         split_idx: usize,
     ) -> Option<(Filters<I>, Filters<I::Slave>)> {
         self.split_filters_internal(fm1r, fs1r, ffa1r, Some(split_idx))?;
-        Some((
-            unsafe { Filters::new(0, split_idx) },
-            unsafe { Filters::new(split_idx, I::NUM_FILTER_BANKS) },
-        ))
+        Some((unsafe { Filters::new(0, split_idx) }, unsafe {
+            Filters::new(split_idx, I::NUM_FILTER_BANKS)
+        }))
     }
 }
 
