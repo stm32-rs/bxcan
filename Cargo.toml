@@ -1,0 +1,54 @@
+[package]
+name = "bxcan"
+version = "0.0.0"
+authors = ["Jonas Schievink <jonasschievink@gmail.com>"]
+edition = "2018"
+# TODO: Write description
+#description = ""
+documentation = "https://docs.rs/bxcan/"
+repository = "https://github.com/jonas-schievink/bxcan.git"
+# TODO: Add up to 5 keywords
+#keywords = []
+# TODO: Add categories
+#categories = []
+readme = "README.md"
+license = "0BSD"
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[dependencies]
+defmt = "0.1.0"
+vcell = "0.1.2"
+nb = "1.0.0"
+
+# cargo-release configuration
+[package.metadata.release]
+tag-message = "{{version}}"
+no-dev-version = true
+pre-release-commit-message = "Release {{version}}"
+
+# Change the changelog's `Unreleased` section to refer to this release and
+# prepend a new `Unreleased` section
+[[package.metadata.release.pre-release-replacements]]
+file    = "CHANGELOG.md"
+search  = "## Unreleased\n"
+replace = """
+## Unreleased
+
+No changes.
+
+## [{{version}} - {{date}}](https://github.com/jonas-schievink/bxcan/releases/tag/v{{version}})
+"""
+
+# Bump the version inside the example manifest in `README.md`
+[[package.metadata.release.pre-release-replacements]]
+file    = "README.md"
+search  = 'bxcan = "[a-z0-9\\.-]+"'
+replace = 'bxcan = "{{version}}"'
+
+# Bump the version referenced by the `html_root_url` attribute in `lib.rs`
+[[package.metadata.release.pre-release-replacements]]
+file    = "src/lib.rs"
+search  = "https://docs.rs/bxcan/[a-z0-9\\.-]+"
+replace = "https://docs.rs/bxcan/{{version}}"
