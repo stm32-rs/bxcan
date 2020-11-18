@@ -260,7 +260,7 @@ where
 
 /// Interface to a CAN peripheral.
 pub struct Can<I: Instance> {
-    _can: PhantomData<I>,
+    instance: I,
     tx: Option<Tx<I>>,
     rx: Option<Rx<I>>,
 }
@@ -269,21 +269,28 @@ impl<I> Can<I>
 where
     I: Instance,
 {
-    /// Creates a CAN interface.
-    pub fn new() -> Can<I> {
-        Self::new_internal()
+    /// Creates a CAN interface, taking ownership of the raw peripheral.
+    pub fn new(instance: I) -> Can<I> {
+        Self::new_internal(instance)
     }
 
     fn registers(&self) -> &RegisterBlock {
         unsafe { &*I::REGISTERS }
     }
 
-    fn new_internal() -> Can<I> {
+    fn new_internal(instance: I) -> Can<I> {
         Can {
-            _can: PhantomData,
+            instance,
             tx: Some(Tx { _can: PhantomData }),
             rx: Some(Rx { _can: PhantomData }),
         }
+    }
+
+    /// Returns a reference to the peripheral instance.
+    /// 
+    /// This allows accessing HAL-specific data stored in the instance type.
+    pub fn instance(&mut self) -> &mut I {
+        &mut self.instance
     }
 
     /// Configure bit timings and silent/loop-back mode.
