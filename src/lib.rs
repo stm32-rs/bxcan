@@ -9,6 +9,7 @@ mod bb;
 mod filter;
 mod frame;
 mod id;
+mod interrupt;
 mod pac;
 mod readme;
 
@@ -16,12 +17,13 @@ pub use crate::filter::{Filter, Filters};
 pub use crate::frame::Data;
 pub use crate::frame::Frame;
 pub use crate::id::{ExtendedId, Id, StandardId};
+pub use crate::interrupt::{Interrupt, Interrupts};
 pub use crate::pac::can::RegisterBlock;
 
-use defmt::Format;
 use core::cmp::{Ord, Ordering};
 use core::convert::{Infallible, TryInto};
 use core::marker::PhantomData;
+use defmt::Format;
 
 use self::pac::generic::*; // To make the PAC extraction build
 
@@ -75,36 +77,6 @@ pub unsafe trait FilterOwner: Instance {
 /// of `Self`.
 pub unsafe trait MasterInstance: FilterOwner {
     type Slave: Instance;
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Format)]
-#[non_exhaustive]
-pub enum Interrupt {
-    Sleep = 17,
-    Wakeup = 16,
-    Error = 15,
-    Fifo1Overrun = 6,
-    Fifo1Full = 5,
-    Fifo1MessagePending = 4,
-    Fifo0Overrun = 3,
-    Fifo0Full = 2,
-    Fifo0MessagePending = 1,
-    TransmitMailboxEmpty = 0,
-}
-
-bitflags::bitflags! {
-    pub struct Interrupts: u32 {
-        const SLEEP = 1 << 17;
-        const WAKEUP = 1 << 16;
-        const ERROR = 1 << 15;
-        const FIFO1_OVERRUN = 1 << 6;
-        const FIFO1_FULL = 1 << 5;
-        const FIFO1_MESSAGE_PENDING = 1 << 4;
-        const FIFO0_OVERRUN = 1 << 3;
-        const FIFO0_FULL = 1 << 2;
-        const FIFO0_MESSAGE_PENDING = 1 << 1;
-        const TRANSMIT_MAILBOX_EMPTY = 1 << 0;
-    }
 }
 
 // TODO: what to do with these?
@@ -379,9 +351,9 @@ where
     }
 
     pub fn enable_interrupts(&mut self, interrupts: Interrupts) {
-        self.registers().ier.modify(|r, w| {
-            unsafe { w.bits(r.bits() | interrupts.bits()) }
-        })
+        self.registers()
+            .ier
+            .modify(|r, w| unsafe { w.bits(r.bits() | interrupts.bits()) })
     }
 
     pub fn disable_interrupt(&mut self, interrupt: Interrupt) {
@@ -389,9 +361,9 @@ where
     }
 
     pub fn disable_interrupts(&mut self, interrupts: Interrupts) {
-        self.registers().ier.modify(|r, w| {
-            unsafe { w.bits(r.bits() & !interrupts.bits()) }
-        })
+        self.registers()
+            .ier
+            .modify(|r, w| unsafe { w.bits(r.bits() & !interrupts.bits()) })
     }
 
     /// Clears all state-change interrupt flags.
