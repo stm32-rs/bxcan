@@ -13,6 +13,7 @@ mod pac;
 mod readme;
 
 pub use crate::filter::{Filter, Filters};
+pub use crate::frame::Data;
 pub use crate::frame::Frame;
 pub use crate::id::{ExtendedId, Id, StandardId};
 pub use crate::pac::can::RegisterBlock;
@@ -20,8 +21,6 @@ pub use crate::pac::can::RegisterBlock;
 use core::cmp::{Ord, Ordering};
 use core::convert::{Infallible, TryInto};
 use core::marker::PhantomData;
-
-use frame::Data;
 
 use self::pac::generic::*; // To make the PAC extraction build
 
@@ -235,7 +234,16 @@ where
 
     /// Configures the bit timings.
     ///
-    /// Use http://www.bittiming.can-wiki.info/ to calculate the `btr` parameter.
+    /// You can use <http://www.bittiming.can-wiki.info/> to calculate the `btr` parameter. Enter
+    /// parameters as follows:
+    ///
+    /// - *Clock Rate*: The input clock speed to the CAN peripheral (*not* the CPU clock speed).
+    ///   This is the clock rate of the peripheral bus the CAN peripheral is attached to (eg. APB1).
+    /// - *Sample Point*: Should normally be left at the default value of 87.5%.
+    /// - *SJW*: Should normally be left at the default value of 1.
+    ///
+    /// Then copy the `CAN_BUS_TIME` register value from the table and pass it as the `btr`
+    /// parameter to this method.
     pub fn set_bit_timing(&mut self, btr: u32) {
         let can = self.registers();
         can.btr.modify(|r, w| unsafe {
