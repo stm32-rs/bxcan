@@ -77,8 +77,7 @@ pub unsafe trait MasterInstance: FilterOwner {
     type Slave: Instance;
 }
 
-// TODO: what to do with these?
-/*#[derive(Debug, Copy, Clone, Eq, PartialEq, Format)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Format)]
 #[non_exhaustive]
 pub enum Interrupt {
     Sleep = 17,
@@ -93,6 +92,23 @@ pub enum Interrupt {
     TransmitMailboxEmpty = 0,
 }
 
+bitflags::bitflags! {
+    pub struct Interrupts: u32 {
+        const SLEEP = 1 << 17;
+        const WAKEUP = 1 << 16;
+        const ERROR = 1 << 15;
+        const FIFO1_OVERRUN = 1 << 6;
+        const FIFO1_FULL = 1 << 5;
+        const FIFO1_MESSAGE_PENDING = 1 << 4;
+        const FIFO0_OVERRUN = 1 << 3;
+        const FIFO0_FULL = 1 << 2;
+        const FIFO0_MESSAGE_PENDING = 1 << 1;
+        const TRANSMIT_MAILBOX_EMPTY = 1 << 0;
+    }
+}
+
+// TODO: what to do with these?
+/*
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Format)]
 pub enum Error {
     Stuff,
@@ -358,18 +374,28 @@ where
         while can.msr.read().slak().bit_is_clear() {}
     }
 
-    /// Enables the wake-up state change interrupt (CANn_SCE).
-    ///
-    /// Call `Can::enable()` in the ISR when the automatic wake-up is not enabled.
-    pub fn enable_wakeup_interrupt(&mut self) {
-        unsafe {
-            let can = self.registers();
-            bb::set(&can.ier, 16); // WKUIE
-        }
+    pub fn enable_interrupt(&mut self, interrupt: Interrupt) {
+        self.enable_interrupts(Interrupts::from_bits_truncate(interrupt as u32))
+    }
+
+    pub fn enable_interrupts(&mut self, interrupts: Interrupts) {
+        self.registers().ier.modify(|r, w| {
+            unsafe { w.bits(r.bits() | interrupts.bits()) }
+        })
+    }
+
+    pub fn disable_interrupt(&mut self, interrupt: Interrupt) {
+        self.disable_interrupts(Interrupts::from_bits_truncate(interrupt as u32))
+    }
+
+    pub fn disable_interrupts(&mut self, interrupts: Interrupts) {
+        self.registers().ier.modify(|r, w| {
+            unsafe { w.bits(r.bits() & !interrupts.bits()) }
+        })
     }
 
     /// Clears all state-change interrupt flags.
-    pub fn clear_interrupt_flags(&mut self) {
+    pub fn clear_wakeup_interrupt(&mut self) {
         let can = self.registers();
         can.msr.write(|w| w.wkui().set_bit());
     }
@@ -651,24 +677,6 @@ where
         tsr.tme0().bit_is_set() && tsr.tme1().bit_is_set() && tsr.tme2().bit_is_set()
     }
 
-    /// Enables the transmit interrupt CANn_TX.
-    ///
-    /// The interrupt flags must be cleared with `Tx::clear_interrupt_flags()`.
-    pub fn enable_interrupt(&mut self) {
-        unsafe {
-            let can = self.registers();
-            bb::set(&can.ier, 0); // TMEIE
-        }
-    }
-
-    /// Disables the transmit interrupt.
-    pub fn disable_interrupt(&mut self) {
-        unsafe {
-            let can = self.registers();
-            bb::clear(&can.ier, 0); // TMEIE
-        }
-    }
-
     /// Clears the request complete flag for all mailboxes.
     pub fn clear_interrupt_flags(&mut self) {
         let can = self.registers();
@@ -732,26 +740,5 @@ where
         rfr.write(|w| w.rfom().set_bit());
 
         Ok(frame)
-    }
-
-    /// Enables the receive interrupts CANn_RX0 and CANn_RX1.
-    ///
-    /// Make sure to register interrupt handlers for both.
-    /// The interrupt flags are cleared by reading frames with `Rx::receive()`.
-    pub fn enable_interrupts(&mut self) {
-        unsafe {
-            let can = self.registers();
-            bb::set(&can.ier, 1); // FMPIE0
-            bb::set(&can.ier, 4); // FMPIE1
-        }
-    }
-
-    /// Disables the receive interrupts.
-    pub fn disable_interrupts(&mut self) {
-        unsafe {
-            let can = self.registers();
-            bb::clear(&can.ier, 1); // FMPIE0
-            bb::clear(&can.ier, 4); // FMPIE1
-        }
     }
 }
