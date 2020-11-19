@@ -18,6 +18,7 @@ pub use crate::frame::Frame;
 pub use crate::id::{ExtendedId, Id, StandardId};
 pub use crate::pac::can::RegisterBlock;
 
+use defmt::Format;
 use core::cmp::{Ord, Ordering};
 use core::convert::{Infallible, TryInto};
 use core::marker::PhantomData;
@@ -113,7 +114,7 @@ pub enum Error {
 /// Lower identifier values have a higher priority. Additionally standard frames
 /// have a higher priority than extended frames and data frames have a higher
 /// priority than remote frames.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Format)]
 struct IdReg(u32);
 
 impl IdReg {
