@@ -1,28 +1,35 @@
 //! Driver for the STM32 bxCAN peripheral.
+//!
+//! This crate provides a reusable driver for the bxCAN peripheral found in many low- to middle-end
+//! STM32 microcontrollers. HALs for compatible chips can reexport this crate and implement its
+//! traits to easily expose a featureful CAN driver.
+//!
+//! Caveats:
+//! - Only RX FIFO 0 is supported, FIFO 1 will not be used.
 
 #![doc(html_root_url = "https://docs.rs/bxcan/0.0.0")]
 // Deny a few warnings in doctests, since rustdoc `allow`s many warnings by default
 #![doc(test(attr(deny(unused_imports, unused_must_use))))]
 #![no_std]
 
-mod bb;
-mod filter;
+pub mod filter;
 mod frame;
 mod id;
 mod interrupt;
 mod pac;
 mod readme;
 
-pub use crate::filter::{Filter, Filters};
 pub use crate::frame::Data;
 pub use crate::frame::Frame;
 pub use crate::id::{ExtendedId, Id, StandardId};
 pub use crate::interrupt::{Interrupt, Interrupts};
 pub use crate::pac::can::RegisterBlock;
 
+use crate::filter::MasterFilters;
 use core::cmp::{Ord, Ordering};
 use core::convert::{Infallible, TryInto};
 use core::marker::PhantomData;
+use core::ptr::NonNull;
 use defmt::Format;
 
 use self::pac::generic::*; // To make the PAC extraction build
@@ -64,7 +71,7 @@ pub unsafe trait FilterOwner: Instance {
     ///
     /// This is usually either 14 or 28, and should be specified in the chip's reference manual or
     /// datasheet.
-    const NUM_FILTER_BANKS: usize;
+    const NUM_FILTER_BANKS: u8;
 }
 
 /// A bxCAN master instance that shares filter banks with a slave instance.
@@ -107,10 +114,8 @@ struct IdReg(u32);
 
 impl IdReg {
     const STANDARD_SHIFT: u32 = 21;
-    const STANDARD_MASK: u32 = 0x7FF << Self::STANDARD_SHIFT;
 
     const EXTENDED_SHIFT: u32 = 3;
-    const EXTENDED_MASK: u32 = 0x1FFF_FFFF << Self::EXTENDED_SHIFT;
 
     const IDE_MASK: u32 = 0x0000_0004;
 
@@ -258,8 +263,6 @@ where
 /// Interface to a CAN peripheral.
 pub struct Can<I: Instance> {
     instance: I,
-    tx: Option<Tx<I>>,
-    rx: Option<Rx<I>>,
 }
 
 impl<I> Can<I>
@@ -267,20 +270,12 @@ where
     I: Instance,
 {
     /// Creates a CAN interface, taking ownership of the raw peripheral.
-    pub fn new(instance: I) -> Can<I> {
-        Self::new_internal(instance)
+    pub fn new(instance: I) -> Self {
+        Can { instance }
     }
 
     fn registers(&self) -> &RegisterBlock {
         unsafe { &*I::REGISTERS }
-    }
-
-    fn new_internal(instance: I) -> Can<I> {
-        Can {
-            instance,
-            tx: Some(Tx { _can: PhantomData }),
-            rx: Some(Rx { _can: PhantomData }),
-        }
     }
 
     /// Returns a reference to the peripheral instance.
@@ -366,130 +361,33 @@ where
             .modify(|r, w| unsafe { w.bits(r.bits() & !interrupts.bits()) })
     }
 
-    /// Clears all state-change interrupt flags.
+    /// Clears the pending flag of [`Interrupt::Wakeup`].
     pub fn clear_wakeup_interrupt(&mut self) {
         let can = self.registers();
         can.msr.write(|w| w.wkui().set_bit());
     }
 
-    /// Returns the transmitter interface.
-    ///
-    /// Only the first calls returns a valid transmitter. Subsequent calls
-    /// return `None`.
-    pub fn take_tx(&mut self) -> Option<Tx<I>> {
-        self.tx.take()
+    /// Splits this `Can` instance into transmitting and receiving halves, by reference.
+    pub fn split_by_ref(&mut self) -> (&mut Tx<I>, &mut Rx<I>) {
+        // Safety: We take `&mut self` and the return value lifetimes are tied to `self`'s lifetime.
+        let tx = unsafe { Tx::conjure_by_ref() };
+        let rx = unsafe { Rx::conjure_by_ref() };
+        (tx, rx)
     }
 
-    /// Returns the receiver interface.
-    ///
-    /// Takes ownership of filters which must be otained by `Can::split_filters()`.
-    /// Only the first calls returns a valid receiver. Subsequent calls return `None`.
-    pub fn take_rx(&mut self, _filters: Filters<I>) -> Option<Rx<I>> {
-        self.rx.take()
+    /// Consumes this `Can` instance and splits it into transmitting and receiving halves.
+    pub fn split(self) -> (Tx<I>, Rx<I>) {
+        unsafe { (Tx::conjure(), Rx::conjure()) }
     }
 }
 
 impl<I: FilterOwner> Can<I> {
-    /// Returns the filter part of the CAN peripheral.
+    /// Accesses the filter banks owned by this CAN peripheral.
     ///
-    /// Filters are required for the receiver to accept any messages at all.
-    pub fn take_filters(&mut self) -> Option<Filters<I>> {
-        // Set all filter banks to 32bit scale and mask mode.
-        // Filters are alternating between between the FIFO0 and FIFO1 to share the
-        // load equally.
-        self.split_filters_internal(0x0000_0000, 0xFFFF_FFFF, 0xAAAA_AAAA, None)?;
-        Some(unsafe { Filters::new(0, I::NUM_FILTER_BANKS) })
-    }
-
-    /// Advanced version of [`take_filters()`].
-    ///
-    /// The additional parameters are bitmasks configure the filter banks.
-    /// Bit 0 for filter bank 0, bit 1 for filter bank 1 and so on.
-    /// `fm1r` in combination with `fs1r` sets the filter bank layout. The correct
-    /// `Filters::add_*()` function must be used.
-    /// `ffa1r` selects the FIFO the filter uses to store accepted messages.
-    /// More details can be found in  the reference manual (Section 24.7.4
-    /// Identifier filtering, Filter bank scale and mode configuration).
-    ///
-    /// [`take_filters()`]: #method.take_filters
-    pub fn take_filters_advanced(
-        &mut self,
-        fm1r: u32,
-        fs1r: u32,
-        ffa1r: u32,
-    ) -> Option<Filters<I>> {
-        self.split_filters_internal(fm1r, fs1r, ffa1r, None)?;
-        Some(unsafe { Filters::new(0, I::NUM_FILTER_BANKS) })
-    }
-
-    fn split_filters_internal(
-        &mut self,
-        fm1r: u32,
-        fs1r: u32,
-        ffa1r: u32,
-        split_idx: Option<usize>,
-    ) -> Option<()> {
-        let can = self.registers();
-
-        if can.fmr.read().finit().bit_is_clear() {
-            return None;
-        }
-
-        can.fm1r.write(|w| unsafe { w.bits(fm1r) });
-        can.fs1r.write(|w| unsafe { w.bits(fs1r) });
-        can.ffa1r.write(|w| unsafe { w.bits(ffa1r) });
-
-        // Init filter banks. Each used filter must still be enabled individually.
-        can.fmr.modify(|_, w| unsafe {
-            if let Some(split_idx) = split_idx {
-                w.can2sb().bits(split_idx as u8);
-            }
-            w.finit().clear_bit()
-        });
-
-        Some(())
-    }
-}
-
-impl<I: MasterInstance> Can<I> {
-    /// Returns the filter part of the CAN peripheral.
-    ///
-    /// Filters are required for the receiver to accept any messages at all.
-    /// `split_idx` can be in the range `0..NUM_FILTER_BANKS` and decides the number
-    /// of filters assigned to each peripheral. A value of `0` means all filter
-    /// banks are used for CAN2 while `NUM_FILTER_BANKS` reserves all filter banks
-    /// for CAN1.
-    pub fn split_filters(&mut self, split_idx: usize) -> Option<(Filters<I>, Filters<I::Slave>)> {
-        // Set all filter banks to 32bit scale and mask mode.
-        // Filters are alternating between between the FIFO0 and FIFO1 to share the
-        // load equally.
-        self.split_filters_internal(0x0000_0000, 0xFFFF_FFFF, 0xAAAA_AAAA, Some(split_idx))?;
-        Some((unsafe { Filters::new(0, split_idx) }, unsafe {
-            Filters::new(split_idx, I::NUM_FILTER_BANKS)
-        }))
-    }
-
-    /// Advanced version of [`split_filters()`].
-    ///
-    /// The additional parameters are bitmasks to configure the filter banks.
-    /// Bit 0 for filter bank 0, bit 1 for filter bank 1 and so on.
-    /// `fm1r` in combination with `fs1r` sets the filter bank layout. The correct
-    /// `Filters::add_*()` function must be used.
-    /// `ffa1r` selects the FIFO the filter uses to store accepted messages.
-    /// More details can be found in the reference manual of the device.
-    ///
-    /// [`split_filters()`]: #method.split_filters
-    pub fn split_filters_advanced(
-        &mut self,
-        fm1r: u32,
-        fs1r: u32,
-        ffa1r: u32,
-        split_idx: usize,
-    ) -> Option<(Filters<I>, Filters<I::Slave>)> {
-        self.split_filters_internal(fm1r, fs1r, ffa1r, Some(split_idx))?;
-        Some((unsafe { Filters::new(0, split_idx) }, unsafe {
-            Filters::new(split_idx, I::NUM_FILTER_BANKS)
-        }))
+    /// To modify filters of a slave peripheral, `modify_filters` has to be called on the master
+    /// peripheral instead.
+    pub fn modify_filters(&mut self) -> MasterFilters<'_, I> {
+        unsafe { MasterFilters::new() }
     }
 }
 
@@ -510,6 +408,21 @@ impl<I> Tx<I>
 where
     I: Instance,
 {
+    unsafe fn conjure() -> Self {
+        Self { _can: PhantomData }
+    }
+
+    /// Creates a `&mut Self` out of thin air.
+    ///
+    /// This is only safe if it is the only way to access an `Rx<I>`.
+    unsafe fn conjure_by_ref<'a>() -> &'a mut Self {
+        // Cause out of bounds access when `Self` is not zero-sized.
+        [()][core::mem::size_of::<Self>()];
+
+        // Any aligned pointer is valid for ZSTs.
+        &mut *NonNull::dangling().as_ptr()
+    }
+
     fn registers(&self) -> &RegisterBlock {
         unsafe { &*I::REGISTERS }
     }
@@ -666,6 +579,21 @@ impl<I> Rx<I>
 where
     I: Instance,
 {
+    unsafe fn conjure() -> Self {
+        Self { _can: PhantomData }
+    }
+
+    /// Creates a `&mut Self` out of thin air.
+    ///
+    /// This is only safe if it is the only way to access an `Rx<I>`.
+    unsafe fn conjure_by_ref<'a>() -> &'a mut Self {
+        // Cause out of bounds access when `Self` is not zero-sized.
+        [()][core::mem::size_of::<Self>()];
+
+        // Any aligned pointer is valid for ZSTs.
+        &mut *NonNull::dangling().as_ptr()
+    }
+
     /// Returns a received frame if available.
     ///
     /// Returns `Err` when a frame was lost due to buffer overrun.

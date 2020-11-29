@@ -1,104 +1,137 @@
+//! Filter bank API.
+
 use core::marker::PhantomData;
+use defmt::Format;
 
 use crate::pac::can::RegisterBlock;
-use crate::{bb, Id, IdReg, Instance};
+use crate::{ExtendedId, FilterOwner, Instance, MasterInstance, StandardId};
 
-/// Filter with an optional mask.
-pub struct Filter {
+/// A 16-bit filter list entry.
+///
+/// This can match data and remote frames using standard IDs.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Format)]
+pub struct ListEntry16(u16);
+
+/// A 32-bit filter list entry.
+///
+/// This can match data and remote frames using extended IDs.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Format)]
+pub struct ListEntry32(u32);
+
+/// A 16-bit identifier mask.
+#[derive(Debug, Copy, Clone, Format)]
+pub struct Mask16 {
+    id: u16,
+    mask: u16,
+}
+
+/// A 32-bit identifier mask.
+#[derive(Debug, Copy, Clone, Format)]
+pub struct Mask32 {
     id: u32,
     mask: u32,
 }
 
-impl Filter {
-    /// Creates a filter that accepts all messages.
+impl ListEntry16 {
+    /// Creates a filter list entry that accepts data frames with the given standard ID.
+    ///
+    /// This entry will *not* accept remote frames with the same ID.
+    pub fn data_frames_with_id(id: StandardId) -> Self {
+        Self(id.as_raw() << 5)
+    }
+
+    /// Creates a filter list entry that accepts remote frames with the given standard ID.
+    pub fn remote_frames_with_id(id: StandardId) -> Self {
+        Self(id.as_raw() << 5 | 1 << 4)
+    }
+}
+
+impl ListEntry32 {
+    /// Creates a filter list entry that accepts data frames with the given extended ID.
+    ///
+    /// This entry will *not* accept remote frames with the same ID.
+    pub fn data_frames_with_id(id: ExtendedId) -> Self {
+        Self(id.as_raw() << 3)
+    }
+
+    /// Creates a filter list entry that accepts remote frames with the given extended ID.
+    pub fn remote_frames_with_id(id: ExtendedId) -> Self {
+        let mut this = Self::data_frames_with_id(id);
+        this.0 |= 0b10;
+        this
+    }
+}
+
+impl Mask16 {
+    /// Creates a 16-bit identifier mask that accepts all frames.
     pub fn accept_all() -> Self {
         Self { id: 0, mask: 0 }
     }
 
-    /// Creates a filter that accepts frames with the specified identifier.
-    pub fn new(id: Id) -> Self {
-        match id {
-            Id::Standard(id) => Filter {
-                id: u32::from(id.as_raw()) << IdReg::STANDARD_SHIFT,
-                mask: IdReg::STANDARD_MASK | IdReg::IDE_MASK | IdReg::RTR_MASK,
-            },
-            Id::Extended(id) => Filter {
-                id: id.as_raw() << IdReg::EXTENDED_SHIFT | IdReg::IDE_MASK,
-                mask: IdReg::EXTENDED_MASK | IdReg::IDE_MASK | IdReg::RTR_MASK,
-            },
-        }
-    }
-
-    /// Only look at the bits of the indentifier which are set to 1 in the mask.
+    /// Creates a 16-bit identifier mask that accepts all frames with the given standard ID.
     ///
-    /// A mask of 0 accepts all identifiers.
-    pub fn with_mask(&mut self, mask: u32) -> &mut Self {
-        if self.is_extended() {
-            self.mask = (self.mask & !IdReg::EXTENDED_MASK) | (mask << IdReg::EXTENDED_SHIFT);
-        } else {
-            self.mask = (self.mask & !IdReg::STANDARD_MASK) | (mask << IdReg::STANDARD_SHIFT);
+    /// Both data and remote frames with `id` will be accepted.
+    pub fn frames_with_id(id: StandardId) -> Self {
+        Self {
+            id: id.as_raw() << 5,
+            mask: 0x7ff << 5,
         }
-        self
+    }
+}
+
+impl Mask32 {
+    /// Creates a 32-bit identifier mask that accepts all frames.
+    pub fn accept_all() -> Self {
+        Self { id: 0, mask: 0 }
     }
 
-    /// Makes this filter accept both data and remote frames.
-    pub fn allow_remote(&mut self) -> &mut Self {
-        self.mask &= !IdReg::RTR_MASK;
-        self
+    /// Creates a 32-bit identifier mask that accepts all frames with the given standard ID.
+    ///
+    /// Both data and remote frames with `id` will be accepted.
+    pub fn frames_with_id(id: ExtendedId) -> Self {
+        Self {
+            id: id.as_raw() << 3,
+            mask: 0x1FFF_FFFF << 3,
+        }
     }
+}
 
-    /// Makes this filter accept only remote frames.
-    pub fn only_remote(&mut self) -> &mut Self {
-        self.id |= IdReg::RTR_MASK;
-        self.mask |= IdReg::RTR_MASK;
-        self
-    }
-
-    fn is_extended(&self) -> bool {
-        self.id & IdReg::IDE_MASK != 0
-    }
-
-    fn matches_single_id(&self) -> bool {
-        ((self.mask & (IdReg::IDE_MASK | IdReg::RTR_MASK)) == (IdReg::IDE_MASK | IdReg::RTR_MASK))
-            && if self.is_extended() {
-                (self.mask & IdReg::EXTENDED_MASK) == IdReg::EXTENDED_MASK
-            } else {
-                (self.mask & IdReg::STANDARD_MASK) == IdReg::STANDARD_MASK
-            }
-    }
-
-    fn reg_to_16bit(reg: u32) -> u32 {
-        (reg & IdReg::STANDARD_MASK) >> 16
-            | (reg & IdReg::IDE_MASK) << 1
-            | (reg & IdReg::RTR_MASK) << 3
-    }
-
-    fn id_to_16bit(&self) -> u32 {
-        Self::reg_to_16bit(self.id)
-    }
-
-    fn mask_to_16bit(&self) -> u32 {
-        Self::reg_to_16bit(self.mask)
-    }
+/// The configuration of a filter bank.
+#[derive(Debug, Copy, Clone, Format)]
+pub enum BankConfig {
+    List16([ListEntry16; 4]),
+    List32([ListEntry32; 2]),
+    Mask16([Mask16; 2]),
+    Mask32(Mask32),
 }
 
 /// Interface to the filter banks of a CAN peripheral.
-pub struct Filters<I> {
-    start_idx: usize,
-    stop_idx: usize,
-    count: usize,
-    _can: PhantomData<I>,
+pub struct MasterFilters<'a, I: FilterOwner> {
+    /// Number of assigned filter banks.
+    ///
+    /// On chips with splittable filter banks, this value can be dynamic.
+    bank_count: u8,
+    _can: PhantomData<&'a mut I>,
 }
 
-impl<I> Filters<I>
-where
-    I: Instance,
-{
-    pub(crate) unsafe fn new(start_idx: usize, stop_idx: usize) -> Self {
+// NOTE: This type mutably borrows the CAN instance and has unique access to the registers while it
+// exists.
+impl<I: FilterOwner> MasterFilters<'_, I> {
+    pub(crate) unsafe fn new() -> Self {
+        let can = &*I::REGISTERS;
+
+        // Enable initialization mode.
+        can.fmr.modify(|_, w| w.finit().set_bit());
+
+        // Read the filter split value.
+        let bank_count = can.fmr.read().can2sb().bits();
+
+        // (Reset value of CAN2SB is 0x0E, 14, which, in devices with 14 filter banks, assigns all
+        // of them to the master peripheral, and in devices with 28, assigns them 50/50 to
+        // master/slave instances)
+
         Self {
-            start_idx,
-            stop_idx,
-            count: 0,
+            bank_count,
             _can: PhantomData,
         }
     }
@@ -107,111 +140,224 @@ where
         unsafe { &*I::REGISTERS }
     }
 
-    /// Returns the number of available filters.
-    ///
-    /// This can number can be larger than the number of filter banks if
-    /// `Can::split_filters_advanced()` was used.
-    pub fn num_available(&self) -> usize {
-        let can = self.registers();
-
-        let mut filter_count = self.stop_idx - self.start_idx;
-
-        let owned_bits = ((1 << filter_count) - 1) << self.start_idx;
-        let mode_list = can.fm1r.read().bits() & owned_bits;
-        let scale_16bit = !can.fs1r.read().bits() & owned_bits;
-
-        filter_count += mode_list.count_ones() as usize;
-        filter_count += scale_16bit.count_ones() as usize;
-        filter_count += (mode_list & scale_16bit).count_ones() as usize;
-        filter_count
+    fn banks_imm(&self) -> FilterBanks<'_> {
+        FilterBanks {
+            start_idx: 0,
+            bank_count: self.bank_count,
+            can: self.registers(),
+        }
     }
 
-    /// Adds a filter. Returns `Err` if the maximum number of filters was reached.
-    pub fn add(&mut self, filter: &Filter) -> Result<(), ()> {
-        let can = self.registers();
-
-        let idx = self.start_idx + self.count;
-        if idx >= self.stop_idx {
-            return Err(());
-        }
-
-        let mode_list = (can.fm1r.read().bits() & (1 << idx)) != 0;
-        let scale_16bit = (can.fs1r.read().bits() & (1 << idx)) == 0;
-        let bank_enabled = (can.fa1r.read().bits() & (1 << idx)) != 0;
-
-        // Make sure the filter is supported by the filter bank configuration.
-        if (mode_list && !filter.matches_single_id()) || (scale_16bit && filter.is_extended()) {
-            return Err(());
-        }
-
-        // Disable the filter bank so it can be modified.
-        unsafe { bb::clear(&can.fa1r, idx as u8) };
-
-        let filter_bank = &can.fb[idx];
-        let fr1 = filter_bank.fr1.read().bits();
-        let fr2 = filter_bank.fr2.read().bits();
-        let (fr1, fr2) = match (mode_list, scale_16bit, bank_enabled) {
-            // 29bit id + mask
-            (false, false, _) => {
-                self.count += 1;
-                (filter.id, filter.mask)
-            }
-            // 2x 29bit id
-            (true, false, false) => (filter.id, filter.id),
-            (true, false, true) => {
-                self.count += 1;
-                (fr1, filter.id)
-            }
-            // 2x 11bit id + mask
-            (false, true, false) => (
-                filter.mask_to_16bit() << 16 | filter.id_to_16bit(),
-                filter.mask_to_16bit() << 16 | filter.id_to_16bit(),
-            ),
-            (false, true, true) => {
-                self.count += 1;
-                (fr1, filter.mask_to_16bit() << 16 | filter.id_to_16bit())
-            }
-            // 4x 11bit id
-            (true, true, false) => (
-                filter.id_to_16bit() << 16 | filter.id_to_16bit(),
-                filter.id_to_16bit() << 16 | filter.id_to_16bit(),
-            ),
-            (true, true, true) => {
-                let f = [fr1 & 0xFFFF, fr1 >> 16, fr2 & 0xFFFF, fr2 >> 16];
-
-                if f[0] == f[1] {
-                    // One filter available, add the second.
-                    (filter.id_to_16bit() << 16 | f[0], fr2)
-                } else if f[0] == f[2] {
-                    // Two filters available, add the third.
-                    (fr1, f[0] << 16 | filter.id_to_16bit())
-                } else if f[0] == f[3] {
-                    // Three filters available, add the fourth.
-                    self.count += 1;
-                    (fr1, filter.id_to_16bit() << 16 | f[2])
-                } else {
-                    unreachable!()
-                }
-            }
-        };
-
-        let can = self.registers();
-        let filter_bank = &can.fb[idx];
-        filter_bank.fr1.write(|w| unsafe { w.bits(fr1) });
-        filter_bank.fr2.write(|w| unsafe { w.bits(fr2) });
-        unsafe { bb::set(&can.fa1r, idx as u8) }; // Enable the filter bank
-        Ok(())
+    /// Returns the number of filter banks currently assigned to this instance.
+    ///
+    /// Chips with splittable filter banks may start out with some banks assigned to the master
+    /// instance and some assigned to the slave instance.
+    pub fn num_banks(&self) -> u8 {
+        self.bank_count
     }
 
     /// Disables all enabled filter banks.
+    ///
+    /// This causes all incoming frames to be disposed.
     pub fn clear(&mut self) {
+        self.banks_imm().clear();
+    }
+
+    /// Disables a filter bank.
+    ///
+    /// If `index` is out of bounds, this will panic.
+    pub fn disable_bank(&mut self, index: u8) {
+        self.banks_imm().disable(index);
+    }
+
+    /// Configures a filter bank according to `config` and enables it.
+    pub fn enable_bank(&mut self, index: u8, config: BankConfig) {
+        self.banks_imm().enable(index, config);
+    }
+}
+
+impl<I: MasterInstance> MasterFilters<'_, I> {
+    /// Sets the index at which the filter banks owned by the slave peripheral start.
+    pub fn set_split(&mut self, split_index: u8) {
+        assert!(split_index <= I::NUM_FILTER_BANKS);
+        self.registers()
+            .fmr
+            .modify(|_, w| unsafe { w.can2sb().bits(split_index) });
+    }
+
+    /// Accesses the filters assigned to the slave peripheral.
+    pub fn slave_filters(&mut self) -> SlaveFilters<'_, I::Slave> {
+        // NB: This mutably borrows `self`, so it has full access to the filter bank registers.
+        SlaveFilters {
+            start_idx: self.bank_count,
+            bank_count: I::NUM_FILTER_BANKS - self.bank_count,
+            _can: PhantomData,
+        }
+    }
+}
+
+impl<I: FilterOwner> Drop for MasterFilters<'_, I> {
+    #[inline]
+    fn drop(&mut self) {
         let can = self.registers();
 
-        assert!(self.start_idx + self.count <= self.stop_idx);
-        for i in self.start_idx..(self.start_idx + self.count) {
-            // Bitbanding required because the filters are shared between CAN1 and CAN2
-            unsafe { bb::clear(&can.fa1r, i as u8) };
+        // Leave initialization mode.
+        can.fmr.modify(|_, w| w.finit().clear_bit());
+    }
+}
+
+/// Interface to the filter banks assigned to a slave peripheral.
+pub struct SlaveFilters<'a, I: Instance> {
+    start_idx: u8,
+    bank_count: u8,
+    _can: PhantomData<&'a mut I>,
+}
+
+impl<I: Instance> SlaveFilters<'_, I> {
+    fn registers(&self) -> &RegisterBlock {
+        unsafe { &*I::REGISTERS }
+    }
+
+    fn banks_imm(&self) -> FilterBanks<'_> {
+        FilterBanks {
+            start_idx: self.start_idx,
+            bank_count: self.bank_count,
+            can: self.registers(),
         }
-        self.count = 0;
+    }
+
+    /// Returns the number of filter banks currently assigned to this instance.
+    ///
+    /// Chips with splittable filter banks may start out with some banks assigned to the master
+    /// instance and some assigned to the slave instance.
+    pub fn num_banks(&self) -> u8 {
+        self.bank_count
+    }
+
+    /// Disables all enabled filter banks.
+    ///
+    /// This causes all incoming frames to be disposed.
+    pub fn clear(&mut self) {
+        self.banks_imm().clear();
+    }
+
+    /// Disables a filter bank.
+    ///
+    /// If `index` is out of bounds, this will panic.
+    pub fn disable_bank(&mut self, index: u8) {
+        self.banks_imm().disable(index);
+    }
+
+    /// Configures a filter bank according to `config` and enables it.
+    pub fn enable_bank(&mut self, index: u8, config: BankConfig) {
+        self.banks_imm().enable(index, config);
+    }
+}
+
+struct FilterBanks<'a> {
+    start_idx: u8,
+    bank_count: u8,
+    can: &'a RegisterBlock,
+}
+
+impl FilterBanks<'_> {
+    fn clear(&mut self) {
+        let mask = filter_bitmask(self.start_idx, self.bank_count);
+
+        self.can.fa1r.modify(|r, w| {
+            let bits = r.bits();
+            // Clear all bits in `mask`.
+            unsafe { w.bits(bits & !mask) }
+        });
+    }
+
+    fn assert_bank_index(&self, index: u8) {
+        assert!((self.start_idx..self.start_idx + self.bank_count).contains(&index));
+    }
+
+    fn disable(&mut self, index: u8) {
+        self.assert_bank_index(index);
+
+        self.can
+            .fa1r
+            .modify(|r, w| unsafe { w.bits(r.bits() & !(1 << index)) })
+    }
+
+    fn enable(&mut self, index: u8, config: BankConfig) {
+        self.assert_bank_index(index);
+
+        // Configure mode.
+        let mode = matches!(config, BankConfig::List16(_) | BankConfig::List32(_));
+        self.can.fm1r.modify(|r, w| {
+            let mut bits = r.bits();
+            if mode {
+                bits |= 1 << index;
+            } else {
+                bits &= !(1 << index);
+            }
+            unsafe { w.bits(bits) }
+        });
+
+        // Configure scale.
+        let scale = matches!(config, BankConfig::List32(_) | BankConfig::Mask32(_));
+        self.can.fs1r.modify(|r, w| {
+            let mut bits = r.bits();
+            if scale {
+                bits |= 1 << index;
+            } else {
+                bits &= !(1 << index);
+            }
+            unsafe { w.bits(bits) }
+        });
+
+        // Configure filter register.
+        let (fxr1, fxr2);
+        match config {
+            BankConfig::List16([a, b, c, d]) => {
+                fxr1 = (u32::from(b.0) << 16) | u32::from(a.0);
+                fxr2 = (u32::from(d.0) << 16) | u32::from(c.0);
+            }
+            BankConfig::List32([a, b]) => {
+                fxr1 = a.0;
+                fxr2 = b.0;
+            }
+            BankConfig::Mask16([a, b]) => {
+                fxr1 = (u32::from(a.mask) << 16) | u32::from(a.id);
+                fxr2 = (u32::from(b.mask) << 16) | u32::from(b.id);
+            }
+            BankConfig::Mask32(a) => {
+                fxr1 = a.mask;
+                fxr2 = a.id;
+            }
+        };
+        let bank = &self.can.fb[usize::from(index)];
+        bank.fr1.write(|w| unsafe { w.bits(fxr1) });
+        bank.fr2.write(|w| unsafe { w.bits(fxr2) });
+
+        // Set active.
+        self.can
+            .fa1r
+            .modify(|r, w| unsafe { w.bits(r.bits() | (1 << index)) })
+    }
+}
+
+/// Computes a bitmask for per-filter-bank registers that only includes filters in the given range.
+fn filter_bitmask(start_idx: u8, bank_count: u8) -> u32 {
+    let count_mask = (1 << bank_count) - 1; // `bank_count` 1-bits
+    count_mask << start_idx
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_filter_bitmask() {
+        assert_eq!(filter_bitmask(0, 1), 0x1);
+        assert_eq!(filter_bitmask(1, 1), 0b10);
+        assert_eq!(filter_bitmask(0, 4), 0xf);
+        assert_eq!(filter_bitmask(1, 3), 0xe);
+        assert_eq!(filter_bitmask(8, 1), 0x100);
+        assert_eq!(filter_bitmask(8, 4), 0xf00);
     }
 }
