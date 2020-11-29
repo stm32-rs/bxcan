@@ -163,18 +163,6 @@ impl Data {
             bytes: [0; 8],
         }
     }
-
-    /// Returns the numeber of bytes in the data payload.
-    #[inline]
-    pub fn len(&self) -> u8 {
-        self.len.into()
-    }
-
-    /// Returns `true` when this `Data` is empty.
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.len == 0
-    }
 }
 
 impl Deref for Data {
@@ -182,15 +170,14 @@ impl Deref for Data {
 
     #[inline]
     fn deref(&self) -> &[u8] {
-        &self.bytes[..usize::from(self.len())]
+        &self.bytes[..usize::from(self.len)]
     }
 }
 
 impl DerefMut for Data {
     #[inline]
     fn deref_mut(&mut self) -> &mut [u8] {
-        let len = self.len();
-        &mut self.bytes[..usize::from(len)]
+        &mut self.bytes[..usize::from(self.len)]
     }
 }
 
