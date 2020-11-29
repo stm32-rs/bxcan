@@ -1,42 +1,42 @@
-#[doc = r"Register block"]
+/// Register block of bxCAN peripherals.
 #[repr(C)]
 pub struct RegisterBlock {
     #[doc = "0x00 - CAN_MCR"]
-    pub mcr: MCR,
+    pub(crate) mcr: MCR,
     #[doc = "0x04 - CAN_MSR"]
-    pub msr: MSR,
+    pub(crate) msr: MSR,
     #[doc = "0x08 - CAN_TSR"]
-    pub tsr: TSR,
+    pub(crate) tsr: TSR,
     #[doc = "0x0c - CAN_RF0R"]
-    pub rfr: [RFR; 2],
+    pub(crate) rfr: [RFR; 2],
     #[doc = "0x14 - CAN_IER"]
-    pub ier: IER,
+    pub(crate) ier: IER,
     #[doc = "0x18 - CAN_ESR"]
-    pub esr: ESR,
+    pub(crate) esr: ESR,
     #[doc = "0x1c - CAN_BTR"]
-    pub btr: BTR,
+    pub(crate) btr: BTR,
     _reserved7: [u8; 352usize],
     #[doc = "0x180 - CAN Transmit cluster"]
-    pub tx: [TX; 3],
+    pub(crate) tx: [TX; 3],
     #[doc = "0x1b0 - CAN Receive cluster"]
-    pub rx: [RX; 2],
+    pub(crate) rx: [RX; 2],
     _reserved9: [u8; 48usize],
     #[doc = "0x200 - CAN_FMR"]
-    pub fmr: FMR,
+    pub(crate) fmr: FMR,
     #[doc = "0x204 - CAN_FM1R"]
-    pub fm1r: FM1R,
+    pub(crate) fm1r: FM1R,
     _reserved11: [u8; 4usize],
     #[doc = "0x20c - CAN_FS1R"]
-    pub fs1r: FS1R,
+    pub(crate) fs1r: FS1R,
     _reserved12: [u8; 4usize],
     #[doc = "0x214 - CAN_FFA1R"]
-    pub ffa1r: FFA1R,
+    pub(crate) ffa1r: FFA1R,
     _reserved13: [u8; 4usize],
     #[doc = "0x21c - CAN_FA1R"]
-    pub fa1r: FA1R,
+    pub(crate) fa1r: FA1R,
     _reserved14: [u8; 32usize],
     #[doc = "0x240 - CAN Filter Bank cluster"]
-    pub fb: [FB; 28], // UP TO 28, but 14 in some devices
+    pub(crate) fb: [FB; 28], // UP TO 28, but 14 in some devices
 }
 #[doc = r"Register block"]
 #[repr(C)]
