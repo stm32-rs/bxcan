@@ -341,20 +341,24 @@ where
         while can.msr.read().slak().bit_is_clear() {}
     }
 
+    /// Starts listening for a CAN interrupt.
     pub fn enable_interrupt(&mut self, interrupt: Interrupt) {
         self.enable_interrupts(Interrupts::from_bits_truncate(interrupt as u32))
     }
 
+    /// Starts listening for a set of CAN interrupts.
     pub fn enable_interrupts(&mut self, interrupts: Interrupts) {
         self.registers()
             .ier
             .modify(|r, w| unsafe { w.bits(r.bits() | interrupts.bits()) })
     }
 
+    /// Stops listening for a CAN interrupt.
     pub fn disable_interrupt(&mut self, interrupt: Interrupt) {
         self.disable_interrupts(Interrupts::from_bits_truncate(interrupt as u32))
     }
 
+    /// Stops listening for a set of CAN interrupts.
     pub fn disable_interrupts(&mut self, interrupts: Interrupts) {
         self.registers()
             .ier
