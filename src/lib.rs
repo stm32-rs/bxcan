@@ -19,8 +19,7 @@ mod interrupt;
 mod pac;
 mod readme;
 
-pub use crate::frame::Data;
-pub use crate::frame::Frame;
+pub use crate::frame::{Data, Frame, FramePriority};
 pub use crate::id::{ExtendedId, Id, StandardId};
 pub use crate::interrupt::{Interrupt, Interrupts};
 pub use crate::pac::can::RegisterBlock;
