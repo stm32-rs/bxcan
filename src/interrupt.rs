@@ -4,6 +4,7 @@ use core::ops;
 
 use defmt::Format;
 
+/// bxCAN interrupt sources.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Format)]
 #[non_exhaustive]
 pub enum Interrupt {
