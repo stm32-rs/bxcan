@@ -73,8 +73,8 @@ impl Frame {
     ///
     /// For data frames the DLC value always matches the length of the data.
     /// Remote frames do not carry any data, yet the DLC can be greater than 0.
-    pub fn dlc(&self) -> usize {
-        self.data.len()
+    pub fn dlc(&self) -> u8 {
+        self.data.len() as u8
     }
 
     /// Returns the frame data (0..8 bytes in length) if this is a data frame.
@@ -166,7 +166,7 @@ impl Data {
 
     /// Returns the numeber of bytes in the data payload.
     #[inline]
-    pub fn len(&self) -> usize {
+    pub fn len(&self) -> u8 {
         self.len.into()
     }
 
@@ -182,7 +182,7 @@ impl Deref for Data {
 
     #[inline]
     fn deref(&self) -> &[u8] {
-        &self.bytes[..self.len()]
+        &self.bytes[..usize::from(self.len())]
     }
 }
 
@@ -190,7 +190,7 @@ impl DerefMut for Data {
     #[inline]
     fn deref_mut(&mut self) -> &mut [u8] {
         let len = self.len();
-        &mut self.bytes[..len]
+        &mut self.bytes[..usize::from(len)]
     }
 }
 
