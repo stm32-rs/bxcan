@@ -183,6 +183,7 @@ impl<I: MasterInstance> MasterFilters<'_, I> {
         self.registers()
             .fmr
             .modify(|_, w| unsafe { w.can2sb().bits(split_index) });
+        self.bank_count = split_index;
     }
 
     /// Accesses the filters assigned to the slave peripheral.
