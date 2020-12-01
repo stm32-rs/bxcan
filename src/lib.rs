@@ -633,7 +633,7 @@ where
         // Read the frame.
         let mut frame = Frame {
             id: IdReg(rx.rir.read().bits()),
-            data: Data::empty(),
+            data: [0; 8].into(),
         };
         frame.data[0..4].copy_from_slice(&rx.rdlr.read().bits().to_ne_bytes());
         frame.data[4..8].copy_from_slice(&rx.rdhr.read().bits().to_ne_bytes());
