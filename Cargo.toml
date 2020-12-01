@@ -3,14 +3,11 @@ name = "bxcan"
 version = "0.0.0"
 authors = ["Jonas Schievink <jonasschievink@gmail.com>"]
 edition = "2018"
-# TODO: Write description
-#description = ""
+description = "STM32 bxCAN peripheral driver"
 documentation = "https://docs.rs/bxcan/"
 repository = "https://github.com/jonas-schievink/bxcan.git"
-# TODO: Add up to 5 keywords
-#keywords = []
-# TODO: Add categories
-#categories = []
+keywords = ["can", "hal", "bus"]
+categories = ["no-std", "embedded"]
 readme = "README.md"
 license = "0BSD"
 
@@ -19,7 +16,7 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 bitflags = "1.2.1"
-defmt = "0.1.0"
+defmt = "0.1.3"
 vcell = "0.1.2"
 nb = "1.0.0"
 

@@ -1,10 +1,11 @@
-# TODO: Write a title
+# bxCAN peripheral driver
 
 [![crates.io](https://img.shields.io/crates/v/bxcan.svg)](https://crates.io/crates/bxcan)
 [![docs.rs](https://docs.rs/bxcan/badge.svg)](https://docs.rs/bxcan/)
 ![CI](https://github.com/jonas-schievink/bxcan/workflows/CI/badge.svg)
 
-TODO: Briefly describe the crate here (eg. "This crate provides ...").
+This crate implements a driver for the bxCAN peripheral found in many low- to
+middle-end STM32 microcontrollers.
 
 Please refer to the [changelog](CHANGELOG.md) to see what changed in the last
 releases.
