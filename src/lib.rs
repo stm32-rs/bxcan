@@ -370,6 +370,25 @@ where
         can.msr.write(|w| w.wkui().set_bit());
     }
 
+    /// Puts a CAN frame in a free transmit mailbox for transmission on the bus.
+    ///
+    /// Frames are transmitted to the bus based on their priority (identifier).
+    /// Transmit order is preserved for frames with identical identifiers.
+    /// If all transmit mailboxes are full, a higher priority frame replaces the
+    /// lowest priority frame, which is returned as `Ok(Some(frame))`.
+    pub fn transmit(&mut self, frame: &Frame) -> nb::Result<Option<Frame>, Infallible> {
+        // Safety: We have a `&mut self` and have unique access to the peripheral.
+        unsafe { Tx::<I>::conjure().transmit(frame) }
+    }
+
+    /// Returns a received frame if available.
+    ///
+    /// Returns `Err` when a frame was lost due to buffer overrun.
+    pub fn receive(&mut self) -> nb::Result<Frame, ()> {
+        // Safety: We have a `&mut self` and have unique access to the peripheral.
+        unsafe { Rx::<I>::conjure().receive() }
+    }
+
     /// Splits this `Can` instance into transmitting and receiving halves, by reference.
     pub fn split_by_ref(&mut self) -> (&mut Tx<I>, &mut Rx<I>) {
         // Safety: We take `&mut self` and the return value lifetimes are tied to `self`'s lifetime.
