@@ -27,7 +27,7 @@ impl Frame {
 
     /// Creates a new remote frame with configurable data length code (DLC).
     pub fn new_remote(id: Id, dlc: u8) -> Result<Frame, ()> {
-        if dlc >= 8 {
+        if dlc > 8 {
             return Err(());
         }
 

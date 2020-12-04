@@ -70,3 +70,9 @@ fn remote_eq_remote_ignores_data() {
 
     assert_eq!(remote1, remote2);
 }
+
+#[test]
+fn max_len() {
+    Frame::new_data(StandardId::MAX.into(), [0; 8].into());
+    Frame::new_remote(StandardId::MAX.into(), 8).unwrap();
+}
