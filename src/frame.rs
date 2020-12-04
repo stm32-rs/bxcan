@@ -45,31 +45,37 @@ impl Frame {
     }
 
     /// Returns true if this frame is an extended frame.
+    #[inline]
     pub fn is_extended(&self) -> bool {
         self.id.is_extended()
     }
 
     /// Returns true if this frame is a standard frame.
+    #[inline]
     pub fn is_standard(&self) -> bool {
         self.id.is_standard()
     }
 
     /// Returns true if this frame is a remote frame.
+    #[inline]
     pub fn is_remote_frame(&self) -> bool {
         self.id.rtr()
     }
 
     /// Returns true if this frame is a data frame.
+    #[inline]
     pub fn is_data_frame(&self) -> bool {
         !self.is_remote_frame()
     }
 
     /// Returns the frame identifier.
+    #[inline]
     pub fn id(&self) -> Id {
         self.id.to_id()
     }
 
     /// Returns the priority of this frame.
+    #[inline]
     pub fn priority(&self) -> FramePriority {
         FramePriority(self.id)
     }
@@ -78,6 +84,7 @@ impl Frame {
     ///
     /// For data frames the DLC value always matches the length of the data.
     /// Remote frames do not carry any data, yet the DLC can be greater than 0.
+    #[inline]
     pub fn dlc(&self) -> u8 {
         self.data.len() as u8
     }
@@ -197,12 +204,14 @@ impl DerefMut for Data {
 }
 
 impl AsRef<[u8]> for Data {
+    #[inline]
     fn as_ref(&self) -> &[u8] {
         self.deref()
     }
 }
 
 impl AsMut<[u8]> for Data {
+    #[inline]
     fn as_mut(&mut self) -> &mut [u8] {
         self.deref_mut()
     }

@@ -418,10 +418,12 @@ pub struct Tx<I> {
     _can: PhantomData<I>,
 }
 
+#[inline]
 const fn ok_mask(idx: usize) -> u32 {
     0x02 << (8 * idx)
 }
 
+#[inline]
 const fn abort_mask(idx: usize) -> u32 {
     0x80 << (8 * idx)
 }
