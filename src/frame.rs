@@ -8,7 +8,7 @@ use defmt::Format;
 use crate::{Id, IdReg};
 
 /// A CAN data or remote frame.
-#[derive(Clone, Debug, Eq, PartialEq, Format)]
+#[derive(Clone, Debug, Eq, Format)]
 pub struct Frame {
     pub(crate) id: IdReg,
     pub(crate) data: Data,
@@ -85,6 +85,16 @@ impl Frame {
             Some(&self.data)
         } else {
             None
+        }
+    }
+}
+
+impl PartialEq for Frame {
+    fn eq(&self, other: &Self) -> bool {
+        match (self.data(), other.data()) {
+            (None, None) => self.id.eq(&other.id),
+            (Some(a), Some(b)) => self.id.eq(&other.id) && a.eq(b),
+            (None, Some(_)) | (Some(_), None) => false,
         }
     }
 }

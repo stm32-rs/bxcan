@@ -59,3 +59,14 @@ fn data_neq_remote() {
 
     assert_ne!(data_frame, remote_frame);
 }
+
+#[test]
+fn remote_eq_remote_ignores_data() {
+    let mut remote1 = Frame::new_remote(StandardId::MAX.into(), 7).unwrap();
+    let mut remote2 = Frame::new_remote(StandardId::MAX.into(), 7).unwrap();
+
+    remote1.data.bytes = [0xAA; 8];
+    remote2.data.bytes = [0x55; 8];
+
+    assert_eq!(remote1, remote2);
+}
