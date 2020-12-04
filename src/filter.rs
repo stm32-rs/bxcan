@@ -327,8 +327,8 @@ impl FilterBanks<'_> {
                 fxr2 = (u32::from(b.mask) << 16) | u32::from(b.id);
             }
             BankConfig::Mask32(a) => {
-                fxr1 = a.mask;
-                fxr2 = a.id;
+                fxr1 = a.id;
+                fxr2 = a.mask;
             }
         };
         let bank = &self.can.fb[usize::from(index)];
