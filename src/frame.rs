@@ -16,13 +16,16 @@ pub struct Frame {
 
 impl Frame {
     /// Creates a new data frame.
-    pub fn new_data(id: Id, data: Data) -> Self {
-        let id = match id {
+    pub fn new_data(id: impl Into<Id>, data: impl Into<Data>) -> Self {
+        let id = match id.into() {
             Id::Standard(id) => IdReg::new_standard(id),
             Id::Extended(id) => IdReg::new_extended(id),
         };
 
-        Self { id, data }
+        Self {
+            id,
+            data: data.into(),
+        }
     }
 
     /// Creates a new remote frame with configurable data length code (DLC).
@@ -30,10 +33,10 @@ impl Frame {
     /// # Panics
     ///
     /// This function will panic if `dlc` is not inside the valid range `0..=8`.
-    pub fn new_remote(id: Id, dlc: u8) -> Self {
+    pub fn new_remote(id: impl Into<Id>, dlc: u8) -> Self {
         assert!(dlc <= 8);
 
-        let mut frame = Self::new_data(id, Data::empty());
+        let mut frame = Self::new_data(id, []);
         // Just extend the data length, even with no data present. The API does not hand out this
         // `Data` object.
         frame.data.len = dlc;

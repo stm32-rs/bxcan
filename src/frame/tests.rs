@@ -1,12 +1,10 @@
-use crate::{ExtendedId, Frame, Id, StandardId};
-
-use super::Data;
+use crate::{ExtendedId, Frame, StandardId};
 
 #[test]
 fn data_greater_remote() {
-    let id = Id::Standard(StandardId::new(0).unwrap());
+    let id = StandardId::new(0).unwrap();
 
-    let data_frame = Frame::new_data(id, Data::empty());
+    let data_frame = Frame::new_data(id, []);
     let remote_frame = Frame::new_remote(id, 0);
     assert!(data_frame.is_data_frame());
     assert!(remote_frame.is_remote_frame());
@@ -16,8 +14,8 @@ fn data_greater_remote() {
 
 #[test]
 fn lower_ids_win_arbitration() {
-    let zero = Frame::new_data(StandardId::new(0).unwrap().into(), Data::empty());
-    let one = Frame::new_data(StandardId::new(1).unwrap().into(), Data::empty());
+    let zero = Frame::new_data(StandardId::new(0).unwrap(), []);
+    let one = Frame::new_data(StandardId::new(1).unwrap(), []);
     assert!(zero.is_standard());
     assert!(!zero.is_extended());
     assert!(one.is_standard());
@@ -26,10 +24,8 @@ fn lower_ids_win_arbitration() {
 
     // Standard IDs have priority over Extended IDs if the Base ID matches.
     let ext_one = Frame::new_data(
-        ExtendedId::new(0b00000000001_000000000000000000)
-            .unwrap()
-            .into(),
-        Data::empty(),
+        ExtendedId::new(0b00000000001_000000000000000000).unwrap(),
+        [],
     );
     assert!(!ext_one.is_standard());
     assert!(ext_one.is_extended());
@@ -38,10 +34,8 @@ fn lower_ids_win_arbitration() {
 
     // Ext. ID with Base ID 0 has priority over Standard ID 1.
     let ext_zero = Frame::new_data(
-        ExtendedId::new(0b00000000000_100000000000000000)
-            .unwrap()
-            .into(),
-        Data::empty(),
+        ExtendedId::new(0b00000000000_100000000000000000).unwrap(),
+        [],
     );
     assert!(!ext_zero.is_standard());
     assert!(ext_zero.is_extended());
@@ -52,8 +46,8 @@ fn lower_ids_win_arbitration() {
 
 #[test]
 fn highest_standard_higher_prio_than_highest_ext() {
-    let std = Frame::new_data(StandardId::MAX.into(), Data::empty());
-    let ext = Frame::new_data(ExtendedId::MAX.into(), Data::empty());
+    let std = Frame::new_data(StandardId::MAX, []);
+    let ext = Frame::new_data(ExtendedId::MAX, []);
 
     assert!(std.is_standard());
     assert!(!std.is_extended());
@@ -64,9 +58,9 @@ fn highest_standard_higher_prio_than_highest_ext() {
 
 #[test]
 fn data_neq_remote() {
-    let id = Id::Standard(StandardId::new(0).unwrap());
+    let id = StandardId::new(0).unwrap();
 
-    let data_frame = Frame::new_data(id, Data::empty());
+    let data_frame = Frame::new_data(id, []);
     let remote_frame = Frame::new_remote(id, 0);
 
     assert_ne!(data_frame, remote_frame);
@@ -74,8 +68,8 @@ fn data_neq_remote() {
 
 #[test]
 fn remote_eq_remote_ignores_data() {
-    let mut remote1 = Frame::new_remote(StandardId::MAX.into(), 7);
-    let mut remote2 = Frame::new_remote(StandardId::MAX.into(), 7);
+    let mut remote1 = Frame::new_remote(StandardId::MAX, 7);
+    let mut remote2 = Frame::new_remote(StandardId::MAX, 7);
 
     remote1.data.bytes = [0xAA; 8];
     remote2.data.bytes = [0x55; 8];
@@ -85,6 +79,6 @@ fn remote_eq_remote_ignores_data() {
 
 #[test]
 fn max_len() {
-    Frame::new_data(StandardId::MAX.into(), [0; 8].into());
-    Frame::new_remote(StandardId::MAX.into(), 8);
+    Frame::new_data(StandardId::MAX, [0; 8]);
+    Frame::new_remote(StandardId::MAX, 8);
 }
