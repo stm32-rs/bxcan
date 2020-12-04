@@ -26,17 +26,19 @@ impl Frame {
     }
 
     /// Creates a new remote frame with configurable data length code (DLC).
-    pub fn new_remote(id: Id, dlc: u8) -> Result<Frame, ()> {
-        if dlc > 8 {
-            return Err(());
-        }
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if `dlc` is not inside the valid range `0..=8`.
+    pub fn new_remote(id: Id, dlc: u8) -> Self {
+        assert!(dlc <= 8);
 
         let mut frame = Self::new_data(id, Data::empty());
         // Just extend the data length, even with no data present. The API does not hand out this
         // `Data` object.
         frame.data.len = dlc;
         frame.id = frame.id.with_rtr(true);
-        Ok(frame)
+        frame
     }
 
     /// Returns true if this frame is an extended frame.

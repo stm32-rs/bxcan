@@ -7,7 +7,7 @@ fn data_greater_remote() {
     let id = Id::Standard(StandardId::new(0).unwrap());
 
     let data_frame = Frame::new_data(id, Data::empty());
-    let remote_frame = Frame::new_remote(id, 0).unwrap();
+    let remote_frame = Frame::new_remote(id, 0);
     assert!(data_frame.is_data_frame());
     assert!(remote_frame.is_remote_frame());
 
@@ -67,15 +67,15 @@ fn data_neq_remote() {
     let id = Id::Standard(StandardId::new(0).unwrap());
 
     let data_frame = Frame::new_data(id, Data::empty());
-    let remote_frame = Frame::new_remote(id, 0).unwrap();
+    let remote_frame = Frame::new_remote(id, 0);
 
     assert_ne!(data_frame, remote_frame);
 }
 
 #[test]
 fn remote_eq_remote_ignores_data() {
-    let mut remote1 = Frame::new_remote(StandardId::MAX.into(), 7).unwrap();
-    let mut remote2 = Frame::new_remote(StandardId::MAX.into(), 7).unwrap();
+    let mut remote1 = Frame::new_remote(StandardId::MAX.into(), 7);
+    let mut remote2 = Frame::new_remote(StandardId::MAX.into(), 7);
 
     remote1.data.bytes = [0xAA; 8];
     remote2.data.bytes = [0x55; 8];
@@ -86,5 +86,5 @@ fn remote_eq_remote_ignores_data() {
 #[test]
 fn max_len() {
     Frame::new_data(StandardId::MAX.into(), [0; 8].into());
-    Frame::new_remote(StandardId::MAX.into(), 8).unwrap();
+    Frame::new_remote(StandardId::MAX.into(), 8);
 }
