@@ -51,6 +51,18 @@ fn lower_ids_win_arbitration() {
 }
 
 #[test]
+fn highest_standard_higher_prio_than_highest_ext() {
+    let std = Frame::new_data(StandardId::MAX.into(), Data::empty());
+    let ext = Frame::new_data(ExtendedId::MAX.into(), Data::empty());
+
+    assert!(std.is_standard());
+    assert!(!std.is_extended());
+    assert!(!ext.is_standard());
+    assert!(ext.is_extended());
+    assert!(std.priority() > ext.priority());
+}
+
+#[test]
 fn data_neq_remote() {
     let id = Id::Standard(StandardId::new(0).unwrap());
 
