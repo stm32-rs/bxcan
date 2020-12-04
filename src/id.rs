@@ -7,6 +7,12 @@ use defmt::Format;
 pub struct StandardId(u16);
 
 impl StandardId {
+    /// CAN ID `0`, the highest priority.
+    pub const ZERO: Self = Self(0);
+
+    /// CAN ID `0x7FF`, the lowest priority.
+    pub const MAX: Self = Self(0x7FF);
+
     /// Tries to create a `StandardId` from a raw 16-bit integer.
     ///
     /// This will return `None` if `raw` is out of range of an 11-bit integer (`> 0x7FF`).
@@ -37,6 +43,12 @@ impl StandardId {
 pub struct ExtendedId(u32);
 
 impl ExtendedId {
+    /// CAN ID `0`, the highest priority.
+    pub const ZERO: Self = Self(0);
+
+    /// CAN ID `0x1FFFFFFF`, the lowest priority.
+    pub const MAX: Self = Self(0x1FFF_FFFF);
+
     /// Tries to create a `ExtendedId` from a raw 32-bit integer.
     ///
     /// This will return `None` if `raw` is out of range of an 29-bit integer (`> 0x1FFF_FFFF`).
