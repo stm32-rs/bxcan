@@ -51,14 +51,12 @@ impl ListEntry32 {
     ///
     /// This entry will *not* accept remote frames with the same ID.
     pub fn data_frames_with_id(id: ExtendedId) -> Self {
-        Self(id.as_raw() << 3)
+        Self(id.as_raw() << 3 | 0b100)
     }
 
     /// Creates a filter list entry that accepts remote frames with the given extended ID.
     pub fn remote_frames_with_id(id: ExtendedId) -> Self {
-        let mut this = Self::data_frames_with_id(id);
-        this.0 |= 0b10;
-        this
+        Self(id.as_raw() << 3 | 0b110)
     }
 }
 
