@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+No changes.
+
+## [0.2.2 - 2020-12-05](https://github.com/jonas-schievink/bxcan/releases/tag/v0.2.2)
+
 ### New Features
 
 * Add `Can::is_transmitter_idle`.
