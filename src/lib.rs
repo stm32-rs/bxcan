@@ -79,11 +79,8 @@ pub unsafe trait FilterOwner: Instance {
 ///
 /// # Safety
 ///
-/// This trait must only be implemented when `Self::Slave` is actually the associated slave instance
-/// of `Self`.
-pub unsafe trait MasterInstance: FilterOwner {
-    type Slave: Instance;
-}
+/// This trait must only be implemented when there is actually an associated slave instance.
+pub unsafe trait MasterInstance: FilterOwner {}
 
 // TODO: what to do with these?
 /*

@@ -26,9 +26,7 @@ unsafe impl Instance for CAN1 {
     const REGISTERS: *mut bxcan::RegisterBlock = 0x4000_6400 as *mut _;
 }
 
-/*unsafe impl MasterInstance for CAN1 {
-    type Slave = CAN2;
-}*/
+// unsafe impl MasterInstance for CAN1 {}
 
 unsafe impl FilterOwner for CAN1 {
     /// F103 is a medium-density device, which have 14 total filter banks.
