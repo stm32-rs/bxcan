@@ -2,7 +2,9 @@
 
 ## Unreleased
 
-No changes.
+### Breaking Changes
+
+* Update `SlaveFilters::enable_bank` to also take `impl Into<T>`.
 
 ## [0.2.0 - 2020-12-05](https://github.com/jonas-schievink/bxcan/releases/tag/v0.2.0)
 

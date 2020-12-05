@@ -300,8 +300,8 @@ impl<I: Instance> SlaveFilters<'_, I> {
     }
 
     /// Configures a filter bank according to `config` and enables it.
-    pub fn enable_bank(&mut self, index: u8, config: BankConfig) {
-        self.banks_imm().enable(index, config);
+    pub fn enable_bank(&mut self, index: u8, config: impl Into<BankConfig>) {
+        self.banks_imm().enable(index, config.into());
     }
 }
 
