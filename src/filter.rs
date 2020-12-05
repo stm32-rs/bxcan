@@ -209,7 +209,7 @@ impl<I: MasterInstance> MasterFilters<'_, I> {
     }
 
     /// Accesses the filters assigned to the slave peripheral.
-    pub fn slave_filters(&mut self) -> SlaveFilters<'_, I::Slave> {
+    pub fn slave_filters(&mut self) -> SlaveFilters<'_, I> {
         // NB: This mutably borrows `self`, so it has full access to the filter bank registers.
         SlaveFilters {
             start_idx: self.bank_count,
