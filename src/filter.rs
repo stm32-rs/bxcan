@@ -47,9 +47,11 @@ impl ListEntry16 {
 }
 
 impl ListEntry32 {
-    /// Creates a filter list entry that accepts data frames with the given extended ID.
+    /// Creates a filter list entry that accepts data frames with the given ID.
     ///
     /// This entry will *not* accept remote frames with the same ID.
+    ///
+    /// The filter will only accept *either* standard *or* extended frames, depending on `id`.
     pub fn data_frames_with_id(id: impl Into<Id>) -> Self {
         match id.into() {
             Id::Standard(id) => Self(u32::from(id.as_raw()) << 21 | 0b000),
@@ -57,7 +59,7 @@ impl ListEntry32 {
         }
     }
 
-    /// Creates a filter list entry that accepts remote frames with the given extended ID.
+    /// Creates a filter list entry that accepts remote frames with the given ID.
     pub fn remote_frames_with_id(id: impl Into<Id>) -> Self {
         match id.into() {
             Id::Standard(id) => Self(u32::from(id.as_raw()) << 21 | 0b010),
@@ -68,34 +70,50 @@ impl ListEntry32 {
 
 impl Mask16 {
     /// Creates a 16-bit identifier mask that accepts all frames.
+    ///
+    /// This will accept both standard and extended data and remote frames with any ID.
     pub fn accept_all() -> Self {
         Self { id: 0, mask: 0 }
     }
 
-    /// Creates a 16-bit identifier mask that accepts all frames with the given standard ID.
+    /// Creates a 16-bit identifier mask that accepts all standard frames with the given ID.
     ///
-    /// Both data and remote frames with `id` will be accepted.
-    pub fn frames_with_id(id: StandardId) -> Self {
+    /// Both data and remote frames with `id` will be accepted. Any extended frames will be
+    /// rejected.
+    pub fn frames_with_std_id(id: StandardId) -> Self {
         Self {
             id: id.as_raw() << 5,
-            mask: 0x7ff << 5,
+            mask: 0x7ff << 5 | 0b1000, // also require IDE = 0
         }
     }
 }
 
 impl Mask32 {
     /// Creates a 32-bit identifier mask that accepts all frames.
+    ///
+    /// This will accept both standard and extended data and remote frames with any ID.
     pub fn accept_all() -> Self {
         Self { id: 0, mask: 0 }
     }
 
-    /// Creates a 32-bit identifier mask that accepts all frames with the given standard ID.
+    /// Creates a 32-bit identifier mask that accepts all frames with the given extended ID.
+    ///
+    /// Both data and remote frames with `id` will be accepted. Standard frames will be rejected.
+    pub fn frames_with_ext_id(id: ExtendedId) -> Self {
+        Self {
+            id: id.as_raw() << 3 | 0b100,
+            mask: 0x1FFF_FFFF << 3 | 0b100, // also require IDE = 1
+        }
+    }
+
+    /// Creates a 32-bit identifier mask that accepts standard and extended frames with the given
+    /// ID.
     ///
     /// Both data and remote frames with `id` will be accepted.
-    pub fn frames_with_id(id: ExtendedId) -> Self {
+    pub fn frames_with_std_id(id: StandardId) -> Self {
         Self {
-            id: id.as_raw() << 3,
-            mask: 0x1FFF_FFFF << 3,
+            id: u32::from(id.as_raw()) << 21,
+            mask: 0x1FFF_FFFF << 21 | 0b100, // also require IDE = 0
         }
     }
 }
