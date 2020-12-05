@@ -4,7 +4,7 @@ use core::marker::PhantomData;
 use defmt::Format;
 
 use crate::pac::can::RegisterBlock;
-use crate::{ExtendedId, FilterOwner, Instance, MasterInstance, StandardId};
+use crate::{ExtendedId, FilterOwner, Id, Instance, MasterInstance, StandardId};
 
 /// A 16-bit filter list entry.
 ///
@@ -14,7 +14,7 @@ pub struct ListEntry16(u16);
 
 /// A 32-bit filter list entry.
 ///
-/// This can match data and remote frames using extended IDs.
+/// This can match data and remote frames using extended or standard IDs.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Format)]
 pub struct ListEntry32(u32);
 
@@ -50,13 +50,19 @@ impl ListEntry32 {
     /// Creates a filter list entry that accepts data frames with the given extended ID.
     ///
     /// This entry will *not* accept remote frames with the same ID.
-    pub fn data_frames_with_id(id: ExtendedId) -> Self {
-        Self(id.as_raw() << 3 | 0b100)
+    pub fn data_frames_with_id(id: impl Into<Id>) -> Self {
+        match id.into() {
+            Id::Standard(id) => Self(u32::from(id.as_raw()) << 21 | 0b000),
+            Id::Extended(id) => Self(id.as_raw() << 3 | 0b100),
+        }
     }
 
     /// Creates a filter list entry that accepts remote frames with the given extended ID.
-    pub fn remote_frames_with_id(id: ExtendedId) -> Self {
-        Self(id.as_raw() << 3 | 0b110)
+    pub fn remote_frames_with_id(id: impl Into<Id>) -> Self {
+        match id.into() {
+            Id::Standard(id) => Self(u32::from(id.as_raw()) << 21 | 0b010),
+            Id::Extended(id) => Self(id.as_raw() << 3 | 0b110),
+        }
     }
 }
 
