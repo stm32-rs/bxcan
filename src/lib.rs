@@ -378,6 +378,12 @@ where
         unsafe { Tx::<I>::conjure().transmit(frame) }
     }
 
+    /// Returns `true` if no frame is pending for transmission.
+    pub fn is_transmitter_idle(&self) -> bool {
+        // Safety: We have a `&mut self` and have unique access to the peripheral.
+        unsafe { Tx::<I>::conjure().is_idle() }
+    }
+
     /// Returns a received frame if available.
     ///
     /// Returns `Err` when a frame was lost due to buffer overrun.
