@@ -35,7 +35,7 @@ jobs:
         toolchain: ${{ matrix.rust }}
         override: true
     - name: Build
-      run: cargo build --all --all-targets
+      run: cargo build --all-targets
     - name: Run tests
       run: cargo test
 
@@ -50,6 +50,7 @@ jobs:
         override: true
         target: ${{ env.NO_STD_TARGET }}
     - name: Build
+      working-directory: testsuite
       run: cargo build --verbose --no-default-features --target ${{ env.NO_STD_TARGET }}
 
   lint:
