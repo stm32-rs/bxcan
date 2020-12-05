@@ -1,0 +1,41 @@
+[package]
+authors = ["Jonas Schievink <jonasschievink@gmail.com>"]
+name = "testsuite"
+publish = false
+edition = "2018"
+version = "0.0.0"
+
+[lib]
+name = "testsuite"
+test = false
+
+[[test]]
+name = "integration"
+harness = false
+
+[dependencies]
+bxcan = { path = ".." }
+cortex-m = "0.6.3"
+cortex-m-rt = "0.6.13"
+defmt = "0.1.3"
+defmt-rtt = "0.1.0"
+defmt-test = "0.1.1"
+panic-probe = "0.1.0"
+stm32f1 = { version = "0.12.1", features = ["stm32f103"] }
+nb = "1.0.0"
+
+[features]
+# set logging levels here
+default = [
+  # in tests, enable all logs
+  "defmt-trace",
+  # "dependency-a/defmt-trace",
+]
+
+# do NOT modify these features
+defmt-default = []
+defmt-trace = []
+defmt-debug = []
+defmt-info = []
+defmt-warn = []
+defmt-error = []
