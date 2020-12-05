@@ -37,7 +37,7 @@ jobs:
     - name: Build
       run: cargo build --all --all-targets
     - name: Run tests
-      run: cargo test --all
+      run: cargo test
 
   no-std:
     runs-on: ubuntu-latest
