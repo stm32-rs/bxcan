@@ -127,6 +127,34 @@ pub enum BankConfig {
     Mask32(Mask32),
 }
 
+impl From<[ListEntry16; 4]> for BankConfig {
+    #[inline]
+    fn from(entries: [ListEntry16; 4]) -> Self {
+        Self::List16(entries)
+    }
+}
+
+impl From<[ListEntry32; 2]> for BankConfig {
+    #[inline]
+    fn from(entries: [ListEntry32; 2]) -> Self {
+        Self::List32(entries)
+    }
+}
+
+impl From<[Mask16; 2]> for BankConfig {
+    #[inline]
+    fn from(entries: [Mask16; 2]) -> Self {
+        Self::Mask16(entries)
+    }
+}
+
+impl From<Mask32> for BankConfig {
+    #[inline]
+    fn from(filter: Mask32) -> Self {
+        Self::Mask32(filter)
+    }
+}
+
 /// Interface to the filter banks of a CAN peripheral.
 pub struct MasterFilters<'a, I: FilterOwner> {
     /// Number of assigned filter banks.
@@ -193,8 +221,8 @@ impl<I: FilterOwner> MasterFilters<'_, I> {
     }
 
     /// Configures a filter bank according to `config` and enables it.
-    pub fn enable_bank(&mut self, index: u8, config: BankConfig) {
-        self.banks_imm().enable(index, config);
+    pub fn enable_bank(&mut self, index: u8, config: impl Into<BankConfig>) {
+        self.banks_imm().enable(index, config.into());
     }
 }
 

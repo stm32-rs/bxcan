@@ -41,7 +41,7 @@ fn roundtrip_frame(frame: &Frame, state: &mut State) -> bool {
 
 #[defmt_test::tests]
 mod tests {
-    use bxcan::filter::{BankConfig, ListEntry32, Mask16, Mask32};
+    use bxcan::filter::{ListEntry32, Mask16, Mask32};
     use bxcan::{ExtendedId, Frame, StandardId};
 
     use super::*;
@@ -84,7 +84,7 @@ mod tests {
     fn basic_roundtrip(state: &mut State) {
         let mut filt = state.can1.modify_filters();
         filt.clear();
-        filt.enable_bank(0, BankConfig::Mask32(Mask32::accept_all()));
+        filt.enable_bank(0, Mask32::accept_all());
         drop(filt);
 
         let frame = Frame::new_data(StandardId::new(0).unwrap(), []);
@@ -110,7 +110,7 @@ mod tests {
 
         let mut filt = state.can1.modify_filters();
         filt.clear();
-        filt.enable_bank(0, BankConfig::Mask32(Mask32::frames_with_std_id(target_id)));
+        filt.enable_bank(0, Mask32::frames_with_std_id(target_id));
         drop(filt);
 
         // Data frames with matching IDs should be accepted.
@@ -152,7 +152,7 @@ mod tests {
 
         let mut filt = state.can1.modify_filters();
         filt.clear();
-        filt.enable_bank(0, BankConfig::Mask32(Mask32::frames_with_ext_id(target_id)));
+        filt.enable_bank(0, Mask32::frames_with_ext_id(target_id));
         drop(filt);
 
         // Data frames with matching IDs should be accepted.
@@ -194,10 +194,10 @@ mod tests {
         filt.clear();
         filt.enable_bank(
             0,
-            BankConfig::Mask16([
+            [
                 Mask16::frames_with_std_id(target_id_1),
                 Mask16::frames_with_std_id(target_id_2),
-            ]),
+            ],
         );
         drop(filt);
 
@@ -236,10 +236,10 @@ mod tests {
         filt.clear();
         filt.enable_bank(
             0,
-            BankConfig::List32([
+            [
                 ListEntry32::data_frames_with_id(target_id_1),
                 ListEntry32::remote_frames_with_id(target_id_2),
-            ]),
+            ],
         );
         drop(filt);
 
@@ -272,10 +272,10 @@ mod tests {
         filt.clear();
         filt.enable_bank(
             0,
-            BankConfig::List32([
+            [
                 ListEntry32::data_frames_with_id(target_id_1),
                 ListEntry32::remote_frames_with_id(target_id_2),
-            ]),
+            ],
         );
         drop(filt);
 
