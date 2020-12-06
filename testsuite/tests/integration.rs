@@ -25,9 +25,10 @@ impl State {
 
 fn roundtrip_frame(frame: &Frame, state: &mut State) -> bool {
     block!(state.can1.transmit(frame)).unwrap();
+    defmt::assert!(!state.can1.is_transmitter_idle());
 
-    // Wait a short while to ensure the frame is fully received.
-    cortex_m::asm::delay(100_000);
+    // Wait until the transmission has completed.
+    while !state.can1.is_transmitter_idle() {}
 
     match state.can1.receive() {
         Ok(received) => {
