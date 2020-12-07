@@ -21,6 +21,22 @@ impl State {
 
         Self { can1 }
     }
+
+    /// Configures the slowest possible speed.
+    ///
+    /// This is useful for testing recovery when the mailboxes are full.
+    fn go_slow(&mut self) {
+        self.can1.configure(|c| {
+            c.set_bit_timing(0x007f_03ff);
+        });
+    }
+
+    /// Configures the default (fast) speed.
+    fn go_fast(&mut self) {
+        self.can1.configure(|c| {
+            c.set_bit_timing(0x0123_0000);
+        });
+    }
 }
 
 fn roundtrip_frame(frame: &Frame, state: &mut State) -> bool {
@@ -301,5 +317,33 @@ mod tests {
         // Matching standard IDs are rejected.
         let frame = Frame::new_remote(StandardId::new(42).unwrap(), 1);
         defmt::assert!(!roundtrip_frame(&frame, state));
+    }
+
+    /// Tests that, when enqueuing 4 frames with ascending priority, the fourth causes the first one
+    /// to be canceled and returned.
+    #[test]
+    fn dequeue_lower_priority_frame(state: &mut State) {
+        let mut filt = state.can1.modify_filters();
+        filt.clear();
+        filt.enable_bank(0, Mask32::accept_all());
+        drop(filt);
+
+        defmt::assert!(state.can1.is_transmitter_idle());
+
+        state.go_slow();
+
+        let frame3 = Frame::new_data(ExtendedId::new(3).unwrap(), []);
+        defmt::assert!(state.can1.transmit(&frame3).unwrap().is_none());
+        let frame2 = Frame::new_data(ExtendedId::new(2).unwrap(), []);
+        defmt::assert!(state.can1.transmit(&frame2).unwrap().is_none());
+        let frame1 = Frame::new_data(ExtendedId::new(1).unwrap(), []);
+        defmt::assert!(state.can1.transmit(&frame1).unwrap().is_none());
+
+        let frame1 = Frame::new_data(ExtendedId::new(0).unwrap(), []);
+        let old = defmt::unwrap!(state.can1.transmit(&frame1).unwrap());
+
+        defmt::assert_eq!(old, frame3);
+
+        state.go_fast();
     }
 }
