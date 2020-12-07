@@ -553,8 +553,8 @@ where
                 id: IdReg(mb.tir.read().bits()),
                 data: Data::empty(),
             };
-            pending_frame.data[0..4].copy_from_slice(&mb.tdlr.read().bits().to_ne_bytes());
-            pending_frame.data[4..8].copy_from_slice(&mb.tdhr.read().bits().to_ne_bytes());
+            pending_frame.data.bytes[0..4].copy_from_slice(&mb.tdlr.read().bits().to_ne_bytes());
+            pending_frame.data.bytes[4..8].copy_from_slice(&mb.tdhr.read().bits().to_ne_bytes());
             pending_frame.data.len = mb.tdtr.read().dlc().bits();
 
             Some(pending_frame)
