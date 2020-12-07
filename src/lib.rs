@@ -173,6 +173,7 @@ impl IdReg {
     }
 }
 
+/// `IdReg` is ordered by priority.
 impl Ord for IdReg {
     fn cmp(&self, other: &Self) -> Ordering {
         // When the IDs match, data frames have priority over remote frames.
@@ -511,7 +512,7 @@ where
 
         // Check the priority by comparing the identifiers. But first make sure the
         // frame has not finished transmission (`TXRQ` == 0) in the meantime.
-        if tir.txrq().bit_is_set() && id >= IdReg::from_register(tir.bits()) {
+        if tir.txrq().bit_is_set() && id <= IdReg::from_register(tir.bits()) {
             // There's a mailbox whose priority is higher or equal
             // the priority of the new frame.
             return Err(nb::Error::WouldBlock);
