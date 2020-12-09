@@ -17,6 +17,7 @@ impl State {
         can1.configure(|c| {
             c.set_loopback(true);
             c.set_silent(true);
+            c.set_bit_timing(0x00050000);
         });
 
         Self { can1 }
@@ -27,15 +28,21 @@ impl State {
     /// This is useful for testing recovery when the mailboxes are full.
     fn go_slow(&mut self) {
         self.can1.configure(|c| {
+            c.set_loopback(true);
+            c.set_silent(true);
             c.set_bit_timing(0x007f_03ff);
         });
+        nb::block!(self.can1.enable()).unwrap();
     }
 
     /// Configures the default (fast) speed.
     fn go_fast(&mut self) {
         self.can1.configure(|c| {
-            c.set_bit_timing(0x0123_0000);
+            c.set_loopback(true);
+            c.set_silent(true);
+            c.set_bit_timing(0x00050000);
         });
+        nb::block!(self.can1.enable()).unwrap();
     }
 }
 
@@ -319,8 +326,8 @@ mod tests {
         defmt::assert!(!roundtrip_frame(&frame, state));
     }
 
-    /// Tests that, when enqueuing 4 frames with ascending priority, the fourth causes the first one
-    /// to be canceled and returned.
+    /// Tests that a low-priority frame in a mailbox is aborted and returned when enqueuing a
+    /// higher-priority frame while all mailboxes are full.
     #[test]
     fn dequeue_lower_priority_frame(state: &mut State) {
         let mut filt = state.can1.modify_filters();
@@ -332,17 +339,36 @@ mod tests {
 
         state.go_slow();
 
+        // Enqueue several frames with increasing priorities.
+        let frame4 = Frame::new_data(ExtendedId::new(4).unwrap(), []);
+        defmt::assert!(state.can1.transmit(&frame4).unwrap().is_none());
         let frame3 = Frame::new_data(ExtendedId::new(3).unwrap(), []);
         defmt::assert!(state.can1.transmit(&frame3).unwrap().is_none());
         let frame2 = Frame::new_data(ExtendedId::new(2).unwrap(), []);
         defmt::assert!(state.can1.transmit(&frame2).unwrap().is_none());
         let frame1 = Frame::new_data(ExtendedId::new(1).unwrap(), []);
         defmt::assert!(state.can1.transmit(&frame1).unwrap().is_none());
+        // NB: We need 4 frames, even though there are only 3 TX mailboxes, presumably because
+        // `frame4` immediately enters some sort of transmit buffer, freeing its mailbox.
 
-        let frame1 = Frame::new_data(ExtendedId::new(0).unwrap(), []);
-        let old = defmt::unwrap!(state.can1.transmit(&frame1).unwrap());
+        // Now all mailboxes have a pending transmission request, but are still waiting on `frame4`
+        // to finish transmission. Enqueuing a higher-priority frame should succeed and abort
+        // transmission of a lower-priority frame.
+        let frame0 = Frame::new_data(ExtendedId::new(0).unwrap(), []);
+        let old = defmt::unwrap!(state.can1.transmit(&frame0).unwrap());
 
+        // The returned frame should be the one with the lowest priority.
         defmt::assert_eq!(old, frame3);
+
+        // All successfully transmitted frames should arrive in priority order, except `frame4`.
+        defmt::assert_eq!(block!(state.can1.receive()).unwrap(), frame4);
+        defmt::assert_eq!(block!(state.can1.receive()).unwrap(), frame0);
+        defmt::assert_eq!(block!(state.can1.receive()).unwrap(), frame1);
+        defmt::assert_eq!(block!(state.can1.receive()).unwrap(), frame2);
+
+        // There should be no more data in transit.
+        defmt::assert!(state.can1.is_transmitter_idle());
+        defmt::assert!(matches!(state.can1.receive(), Err(nb::Error::WouldBlock)));
 
         state.go_fast();
     }
