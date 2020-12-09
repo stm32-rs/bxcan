@@ -2,7 +2,10 @@
 
 ## Unreleased
 
-No changes.
+### Fixes
+
+* Fix a panic when aborting transmission of a lower-priority frame.
+* Fix comparison when checking for a lower-priority mailbox.
 
 ## [0.2.2 - 2020-12-05](https://github.com/jonas-schievink/bxcan/releases/tag/v0.2.2)
 
