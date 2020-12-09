@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+No changes.
+
+## [0.2.3 - 2020-12-09](https://github.com/jonas-schievink/bxcan/releases/tag/v0.2.3)
+
 ### Fixes
 
 * Fix a panic when aborting transmission of a lower-priority frame.

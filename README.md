@@ -16,7 +16,7 @@ Add an entry to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-bxcan = "0.2.2"
+bxcan = "0.2.3"
 ```
 
 Check the [API Documentation](https://docs.rs/bxcan/) for how to use the
