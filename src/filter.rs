@@ -90,6 +90,20 @@ impl Mask16 {
             mask: mask.as_raw() << 5 | 0b1000, // also require IDE = 0
         }
     }
+
+    /// Make the filter accept data frames only.
+    pub fn data_frames_only(&mut self) -> &mut Self {
+        self.id &= !0b10000; // RTR = 0
+        self.mask |= 0b10000;
+        self
+    }
+
+    /// Make the filter accept remote frames only.
+    pub fn remote_frames_only(&mut self) -> &mut Self {
+        self.id |= 0b10000; // RTR = 1
+        self.mask |= 0b10000;
+        self
+    }
 }
 
 impl Mask32 {
@@ -126,6 +140,20 @@ impl Mask32 {
             id: u32::from(id.as_raw()) << 21,
             mask: u32::from(mask.as_raw()) << 21 | 0b100, // also require IDE = 0
         }
+    }
+
+    /// Make the filter accept data frames only.
+    pub fn data_frames_only(&mut self) -> &mut Self {
+        self.id &= !0b10; // RTR = 0
+        self.mask |= 0b10;
+        self
+    }
+
+    /// Make the filter accept remote frames only.
+    pub fn remote_frames_only(&mut self) -> &mut Self {
+        self.id |= 0b10; // RTR = 1
+        self.mask |= 0b10;
+        self
     }
 }
 
