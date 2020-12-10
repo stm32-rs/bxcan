@@ -76,14 +76,18 @@ impl Mask16 {
         Self { id: 0, mask: 0 }
     }
 
-    /// Creates a 16-bit identifier mask that accepts all standard frames with the given ID.
+    /// Creates a 16-bit identifier mask that accepts all frames with the given standard
+    /// ID and mask combination.
+    ///
+    /// Filter logic: frame_accepted = (incoming_id & mask) == (id & mask)
+    /// A mask of all all ones (0x7FF) matches the exact ID, a mask of 0 matches all IDs.
     ///
     /// Both data and remote frames with `id` will be accepted. Any extended frames will be
     /// rejected.
-    pub fn frames_with_std_id(id: StandardId) -> Self {
+    pub fn frames_with_std_id(id: StandardId, mask: StandardId) -> Self {
         Self {
             id: id.as_raw() << 5,
-            mask: 0x7ff << 5 | 0b1000, // also require IDE = 0
+            mask: mask.as_raw() << 5 | 0b1000, // also require IDE = 0
         }
     }
 }
@@ -96,24 +100,31 @@ impl Mask32 {
         Self { id: 0, mask: 0 }
     }
 
-    /// Creates a 32-bit identifier mask that accepts all frames with the given extended ID.
+    /// Creates a 32-bit identifier mask that accepts all frames with the given extended
+    /// ID and mask combination.
+    ///
+    /// Filter logic: frame_accepted = (incoming_id & mask) == (id & mask)
+    /// A mask of all all ones (0x1FFF_FFFF) matches the exact ID, a mask of 0 matches all IDs.
     ///
     /// Both data and remote frames with `id` will be accepted. Standard frames will be rejected.
-    pub fn frames_with_ext_id(id: ExtendedId) -> Self {
+    pub fn frames_with_ext_id(id: ExtendedId, mask: ExtendedId) -> Self {
         Self {
             id: id.as_raw() << 3 | 0b100,
-            mask: 0x1FFF_FFFF << 3 | 0b100, // also require IDE = 1
+            mask: mask.as_raw() << 3 | 0b100, // also require IDE = 1
         }
     }
 
-    /// Creates a 32-bit identifier mask that accepts standard and extended frames with the given
-    /// ID.
+    /// Creates a 32-bit identifier mask that accepts all frames with the given standard
+    /// ID and mask combination.
     ///
-    /// Both data and remote frames with `id` will be accepted.
-    pub fn frames_with_std_id(id: StandardId) -> Self {
+    /// Filter logic: frame_accepted = (incoming_id & mask) == (id & mask)
+    /// A mask of all all ones (0x7FF) matches the exact ID, a mask of 0 matches all IDs.
+    ///
+    /// Both data and remote frames with `id` will be accepted. Extended frames will be rejected.
+    pub fn frames_with_std_id(id: StandardId, mask: StandardId) -> Self {
         Self {
             id: u32::from(id.as_raw()) << 21,
-            mask: 0x1FFF_FFFF << 21 | 0b100, // also require IDE = 0
+            mask: u32::from(mask.as_raw()) << 21 | 0b100, // also require IDE = 0
         }
     }
 }
