@@ -81,8 +81,8 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y libusb-1.0-0-dev pkg-config
-    - name: Install probe-run
-      run: cargo install probe-run
+    - name: Install probe-run / flip-link
+      run: cargo install probe-run flip-link
     - name: Run tests on hardware
       working-directory: testsuite
       run: cargo test
