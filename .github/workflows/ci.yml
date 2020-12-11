@@ -76,6 +76,8 @@ jobs:
         toolchain: stable
         override: true
         target: ${{ env.NO_STD_TARGET }}
-    - name: Build
+    - name: Install probe-run
+      run: cargo install probe-run
+    - name: Run tests on hardware
       working-directory: testsuite
       run: cargo test
