@@ -78,10 +78,13 @@ jobs:
         target: ${{ env.NO_STD_TARGET }}
     - name: Install native dependencies
       run: |
-        sudo apt update
-        sudo apt install -y libusb-1.0-0-dev
+        sudo apt-get update
+        sudo apt-get install -y libusb-1.0-0-dev
     - name: Install probe-run
       run: cargo install probe-run
+      env:
+        # override static linkage against libusb
+        PKG_CONFIG_ALL_DYNAMIC: 1
     - name: Run tests on hardware
       working-directory: testsuite
       run: cargo test
