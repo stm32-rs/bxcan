@@ -12,7 +12,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: "--deny warnings"
   NO_STD_TARGET: thumbv6m-none-eabi
 
 jobs:
@@ -27,6 +26,8 @@ jobs:
           - macOS-latest
           - windows-latest
     runs-on: ${{ matrix.os }}
+    env:
+      RUSTFLAGS: "--deny warnings"
     steps:
     - uses: actions/checkout@v2
     - uses: actions-rs/toolchain@v1
@@ -82,9 +83,6 @@ jobs:
         sudo apt-get install -y libusb-1.0-0-dev pkg-config
     - name: Install probe-run
       run: cargo install probe-run
-      env:
-        # override static linkage against libusb
-        PKG_CONFIG_ALL_DYNAMIC: 1
     - name: Run tests on hardware
       working-directory: testsuite
       run: cargo test
