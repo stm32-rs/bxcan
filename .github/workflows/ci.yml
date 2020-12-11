@@ -65,3 +65,17 @@ jobs:
         components: rustfmt
     - name: Check code formatting
       run: cargo fmt -- --check
+
+  hardware-in-the-loop:
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+        target: ${{ env.NO_STD_TARGET }}
+    - name: Build
+      working-directory: testsuite
+      run: cargo test
