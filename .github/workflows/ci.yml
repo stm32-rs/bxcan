@@ -79,7 +79,7 @@ jobs:
     - name: Install native dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y libusb-1.0-0-dev
+        sudo apt-get install -y libusb-1.0-0-dev pkg-config
     - name: Install probe-run
       run: cargo install probe-run
       env:
