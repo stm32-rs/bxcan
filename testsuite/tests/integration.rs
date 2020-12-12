@@ -131,7 +131,7 @@ mod tests {
     #[test]
     fn filter_mask32_std(state: &mut State) {
         let target_id = StandardId::new(42).unwrap();
-        let mask = StandardId::new(0x7FF).unwrap(); // Exact match required
+        let mask = StandardId::MAX; // Exact match required
 
         let mut filt = state.can1.modify_filters();
         filt.clear();
@@ -174,7 +174,7 @@ mod tests {
     #[test]
     fn filter_mask32_ext(state: &mut State) {
         let target_id = ExtendedId::new(0).unwrap();
-        let mask = ExtendedId::new(0x1FFF_FFFF).unwrap(); // Exact match required
+        let mask = ExtendedId::MAX; // Exact match required
 
         let mut filt = state.can1.modify_filters();
         filt.clear();
@@ -215,7 +215,7 @@ mod tests {
     fn filter_mask16(state: &mut State) {
         let target_id_1 = StandardId::new(16).unwrap();
         let target_id_2 = StandardId::new(17).unwrap();
-        let mask = StandardId::new(0x7FF).unwrap(); // Exact match required
+        let mask = StandardId::MAX; // Exact match required
 
         let mut filt = state.can1.modify_filters();
         filt.clear();
