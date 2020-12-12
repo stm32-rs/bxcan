@@ -131,10 +131,11 @@ mod tests {
     #[test]
     fn filter_mask32_std(state: &mut State) {
         let target_id = StandardId::new(42).unwrap();
+        let mask = StandardId::MAX; // Exact match required
 
         let mut filt = state.can1.modify_filters();
         filt.clear();
-        filt.enable_bank(0, Mask32::frames_with_std_id(target_id));
+        filt.enable_bank(0, Mask32::frames_with_std_id(target_id, mask));
         drop(filt);
 
         // Data frames with matching IDs should be accepted.
@@ -173,10 +174,11 @@ mod tests {
     #[test]
     fn filter_mask32_ext(state: &mut State) {
         let target_id = ExtendedId::new(0).unwrap();
+        let mask = ExtendedId::MAX; // Exact match required
 
         let mut filt = state.can1.modify_filters();
         filt.clear();
-        filt.enable_bank(0, Mask32::frames_with_ext_id(target_id));
+        filt.enable_bank(0, Mask32::frames_with_ext_id(target_id, mask));
         drop(filt);
 
         // Data frames with matching IDs should be accepted.
@@ -213,14 +215,15 @@ mod tests {
     fn filter_mask16(state: &mut State) {
         let target_id_1 = StandardId::new(16).unwrap();
         let target_id_2 = StandardId::new(17).unwrap();
+        let mask = StandardId::MAX; // Exact match required
 
         let mut filt = state.can1.modify_filters();
         filt.clear();
         filt.enable_bank(
             0,
             [
-                Mask16::frames_with_std_id(target_id_1),
-                Mask16::frames_with_std_id(target_id_2),
+                Mask16::frames_with_std_id(target_id_1, mask),
+                Mask16::frames_with_std_id(target_id_2, mask),
             ],
         );
         drop(filt);
