@@ -25,6 +25,7 @@ bitflags = "1.2.1"
 defmt = "0.1.3"
 vcell = "0.1.2"
 nb = "1.0.0"
+embedded-can = { path = "../embedded-can" }
 
 [profile.test]
 opt-level = "s"

@@ -14,13 +14,13 @@
 
 pub mod filter;
 mod frame;
-mod id;
 mod interrupt;
 mod pac;
 mod readme;
 
+pub use embedded_can::{ExtendedId, Id, StandardId};
+
 pub use crate::frame::{Data, Frame, FramePriority};
-pub use crate::id::{ExtendedId, Id, StandardId};
 pub use crate::interrupt::{Interrupt, Interrupts};
 pub use crate::pac::can::RegisterBlock;
 
