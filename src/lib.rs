@@ -417,6 +417,26 @@ impl<I: FilterOwner> Can<I> {
     }
 }
 
+impl<I> embedded_can::Can for Can<I>
+where
+    I: Instance,
+{
+    type Frame = Frame;
+
+    type Error = ();
+
+    fn try_transmit(
+        &mut self,
+        frame: &Self::Frame,
+    ) -> nb::Result<Option<Self::Frame>, Self::Error> {
+        self.transmit(frame).map_err(|e| e.map(|_| ()))
+    }
+
+    fn try_receive(&mut self) -> nb::Result<Self::Frame, Self::Error> {
+        self.receive()
+    }
+}
+
 /// Interface to the CAN transmitter part.
 pub struct Tx<I> {
     _can: PhantomData<I>,
