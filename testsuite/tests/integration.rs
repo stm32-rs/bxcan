@@ -82,27 +82,30 @@ mod tests {
         state
     }
 
-    // FIXME: This is supposed to run on a device with 2 CAN peripherals.
-    /*#[test]
-    fn split_filters(state: &mut super::State) {
+    #[test]
+    fn split_filters(state: &mut State) {
         let mut filt = state.can1.modify_filters();
 
         filt.set_split(0);
         defmt::assert_eq!(filt.num_banks(), 0);
-        defmt::assert_eq!(filt.slave_filters().num_banks(), 14);
+        defmt::assert_eq!(filt.slave_filters().num_banks(), 28);
 
         filt.set_split(1);
         defmt::assert_eq!(filt.num_banks(), 1);
-        defmt::assert_eq!(filt.slave_filters().num_banks(), 13);
+        defmt::assert_eq!(filt.slave_filters().num_banks(), 27);
 
         filt.set_split(13);
         defmt::assert_eq!(filt.num_banks(), 13);
-        defmt::assert_eq!(filt.slave_filters().num_banks(), 1);
+        defmt::assert_eq!(filt.slave_filters().num_banks(), 15);
 
         filt.set_split(14);
         defmt::assert_eq!(filt.num_banks(), 14);
+        defmt::assert_eq!(filt.slave_filters().num_banks(), 14);
+
+        filt.set_split(28);
+        defmt::assert_eq!(filt.num_banks(), 28);
         defmt::assert_eq!(filt.slave_filters().num_banks(), 0);
-    }*/
+    }
 
     #[test]
     fn basic_roundtrip(state: &mut State) {
