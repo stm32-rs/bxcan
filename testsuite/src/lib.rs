@@ -37,16 +37,34 @@ unsafe impl Instance for CAN2 {
     const REGISTERS: *mut bxcan::RegisterBlock = 0x4000_6800 as *mut _;
 }
 
-pub fn init(can1: pac::CAN1, can2: pac::CAN2, rcc: &mut pac::RCC) -> (CAN1, CAN2) {
-    // Turn on RCC clocks.
-    rcc.apb1enr
+pub fn init(p: pac::Peripherals) -> (CAN1, CAN2) {
+    p.RCC
+        .apb1enr
         .modify(|_, w| w.can1en().enabled().can2en().enabled());
-    rcc.apb1rstr
+    p.RCC
+        .apb2enr
+        .modify(|_, w| w.iopaen().enabled().iopben().enabled().afioen().enabled());
+
+    p.RCC
+        .apb1rstr
         .modify(|_, w| w.can1rst().reset().can2rst().reset());
-    rcc.apb1rstr
+    p.RCC
+        .apb1rstr
         .modify(|_, w| w.can1rst().clear_bit().can2rst().clear_bit());
 
-    let _ = (can1, can2);
+    // CAN1: PA11 + PA12
+    // CAN2: PB5 + PB6
+    p.AFIO
+        .mapr
+        .modify(|_, w| unsafe { w.can1_remap().bits(0).can2_remap().set_bit() });
+    p.GPIOA
+        .crh
+        .modify(|_, w| w.mode12().output().cnf12().alt_push_pull());
+    p.GPIOB
+        .crl
+        .modify(|_, w| w.mode6().output().cnf6().alt_push_pull());
+
+    let _ = (p.CAN1, p.CAN2);
 
     (CAN1 { _private: () }, CAN2 { _private: () })
 }
