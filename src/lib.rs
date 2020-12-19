@@ -14,13 +14,13 @@
 
 pub mod filter;
 mod frame;
-mod id;
 mod interrupt;
 mod pac;
 mod readme;
 
+pub use embedded_can::{ExtendedId, Id, StandardId};
+
 pub use crate::frame::{Data, Frame, FramePriority};
-pub use crate::id::{ExtendedId, Id, StandardId};
 pub use crate::interrupt::{Interrupt, Interrupts};
 pub use crate::pac::can::RegisterBlock;
 
@@ -414,6 +414,26 @@ impl<I: FilterOwner> Can<I> {
     /// peripheral instead.
     pub fn modify_filters(&mut self) -> MasterFilters<'_, I> {
         unsafe { MasterFilters::new() }
+    }
+}
+
+impl<I> embedded_can::Can for Can<I>
+where
+    I: Instance,
+{
+    type Frame = Frame;
+
+    type Error = ();
+
+    fn try_transmit(
+        &mut self,
+        frame: &Self::Frame,
+    ) -> nb::Result<Option<Self::Frame>, Self::Error> {
+        self.transmit(frame).map_err(|e| e.map(|_| ()))
+    }
+
+    fn try_receive(&mut self) -> nb::Result<Self::Frame, Self::Error> {
+        self.receive()
     }
 }
 
