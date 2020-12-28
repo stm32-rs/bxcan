@@ -47,7 +47,7 @@ replace = """
 
 No changes.
 
-## [{{version}} - {{date}}](https://github.com/jonas-schievink/bxcan/releases/tag/v{{version}})
+## [{{version}} - {{date}}](https://github.com/stm32-rs/bxcan/releases/tag/v{{version}})
 """
 
 # Bump the version inside the example manifest in `README.md`
