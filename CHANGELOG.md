@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+No changes.
+
+## [0.3.0 - 2020-12-28](https://github.com/jonas-schievink/bxcan/releases/tag/v0.3.0)
+
 ### New Features
 
 * Configurable mask for masked filters.
