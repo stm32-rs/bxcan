@@ -2,7 +2,14 @@
 
 ## Unreleased
 
-No changes.
+### New Features
+
+* Configurable mask for masked filters.
+* Implement the `embedded-can` traits.
+
+### Breaking Changes
+
+* Changes to masked filters required some breaking API changes.
 
 ## [0.2.3 - 2020-12-09](https://github.com/jonas-schievink/bxcan/releases/tag/v0.2.3)
 
