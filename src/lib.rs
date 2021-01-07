@@ -298,7 +298,12 @@ where
         // Enter init mode.
         can.mcr
             .modify(|_, w| w.sleep().clear_bit().inrq().set_bit());
-        while can.msr.read().inak().bit_is_clear() {}
+        loop {
+            let msr = can.msr.read();
+            if msr.slak().bit_is_clear() && msr.inak().bit_is_set() {
+                break;
+            }
+        }
 
         let mut config = CanConfig { _can: PhantomData };
         f(&mut config);
@@ -335,7 +340,12 @@ where
         let can = self.registers();
         can.mcr
             .modify(|_, w| w.sleep().set_bit().inrq().clear_bit());
-        while can.msr.read().slak().bit_is_clear() {}
+        loop {
+            let msr = can.msr.read();
+            if msr.slak().bit_is_set() && msr.inak().bit_is_clear() {
+                break;
+            }
+        }
     }
 
     /// Starts listening for a CAN interrupt.
