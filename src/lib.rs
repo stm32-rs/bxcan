@@ -504,8 +504,8 @@ where
                 tsr.tme0().bit_is_clear() && tsr.tme1().bit_is_clear() && tsr.tme2().bit_is_clear();
             if all_frames_are_pending {
                 // No free mailbox is available. This can only happen when three frames with
-                // descending priority were requested for transmission and all of them are
-                // blocked by bus traffic with even higher priority.
+                // ascending priority (descending IDs) were requested for transmission and all
+                // of them are blocked by bus traffic with even higher priority.
                 // To prevent a priority inversion abort and replace the lowest priority frame.
                 self.read_pending_mailbox(idx)
             } else {
@@ -521,8 +521,8 @@ where
         Ok(pending_frame)
     }
 
-    /// Returns `Ok` when the mailbox is free or has a lower priority than
-    /// identifier than `id`.
+    /// Returns `Ok` when the mailbox is free or if it contains pending frame with a
+    /// lower priority (higher ID) than the identifier `id`.
     fn check_priority(&self, idx: usize, id: IdReg) -> nb::Result<(), Infallible> {
         let can = self.registers();
 
@@ -531,7 +531,7 @@ where
         let tir = &can.tx[idx].tir.read();
 
         // Check the priority by comparing the identifiers. But first make sure the
-        // frame has not finished transmission (`TXRQ` == 0) in the meantime.
+        // frame has not finished the transmission (`TXRQ` == 0) in the meantime.
         if tir.txrq().bit_is_set() && id <= IdReg::from_register(tir.bits()) {
             // There's a mailbox whose priority is higher or equal
             // the priority of the new frame.
