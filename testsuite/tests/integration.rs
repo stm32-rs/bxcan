@@ -74,9 +74,7 @@ mod tests {
     fn init() -> State {
         let mut state = State::init();
 
-        let mut filt = state.can1.modify_filters();
-        filt.clear();
-        drop(filt);
+        state.can1.modify_filters().clear();
         nb::block!(state.can1.enable()).unwrap();
 
         state
@@ -106,10 +104,11 @@ mod tests {
 
     #[test]
     fn basic_roundtrip(state: &mut State) {
-        let mut filt = state.can1.modify_filters();
-        filt.clear();
-        filt.enable_bank(0, Mask32::accept_all());
-        drop(filt);
+        state
+            .can1
+            .modify_filters()
+            .clear()
+            .enable_bank(0, Mask32::accept_all());
 
         let frame = Frame::new_data(StandardId::new(0).unwrap(), []);
         defmt::assert!(roundtrip_frame(&frame, state));
@@ -132,10 +131,11 @@ mod tests {
     fn filter_mask32_std(state: &mut State) {
         let target_id = StandardId::new(42).unwrap();
 
-        let mut filt = state.can1.modify_filters();
-        filt.clear();
-        filt.enable_bank(0, Mask32::frames_with_std_id(target_id));
-        drop(filt);
+        let mut filt = state
+            .can1
+            .modify_filters()
+            .clear()
+            .enable_bank(0, Mask32::frames_with_std_id(target_id));
 
         // Data frames with matching IDs should be accepted.
         let frame = Frame::new_data(target_id, []);
@@ -174,11 +174,11 @@ mod tests {
     fn filter_mask32_ext(state: &mut State) {
         let target_id = ExtendedId::new(0).unwrap();
 
-        let mut filt = state.can1.modify_filters();
-        filt.clear();
-        filt.enable_bank(0, Mask32::frames_with_ext_id(target_id));
-        drop(filt);
-
+        state
+            .can1
+            .modify_filters()
+            .clear()
+            .enable_bank(0, Mask32::frames_with_ext_id(target_id));
         // Data frames with matching IDs should be accepted.
         let frame = Frame::new_data(target_id, []);
         defmt::assert!(roundtrip_frame(&frame, state));
@@ -214,16 +214,13 @@ mod tests {
         let target_id_1 = StandardId::new(16).unwrap();
         let target_id_2 = StandardId::new(17).unwrap();
 
-        let mut filt = state.can1.modify_filters();
-        filt.clear();
-        filt.enable_bank(
+        state.can1.modify_filters().clear().enable_bank(
             0,
             [
                 Mask16::frames_with_std_id(target_id_1),
                 Mask16::frames_with_std_id(target_id_2),
             ],
         );
-        drop(filt);
 
         // Data frames with matching IDs should be accepted.
         let frame = Frame::new_data(target_id_1, []);
@@ -256,16 +253,13 @@ mod tests {
         let target_id_1 = StandardId::MAX;
         let target_id_2 = StandardId::new(42).unwrap();
 
-        let mut filt = state.can1.modify_filters();
-        filt.clear();
-        filt.enable_bank(
+        state.can1.modify_filters().clear().enable_bank(
             0,
             [
                 ListEntry32::data_frames_with_id(target_id_1),
                 ListEntry32::remote_frames_with_id(target_id_2),
             ],
         );
-        drop(filt);
 
         // Frames with matching IDs should be accepted.
         let frame = Frame::new_data(target_id_1, []);
@@ -292,16 +286,13 @@ mod tests {
         let target_id_1 = ExtendedId::MAX;
         let target_id_2 = ExtendedId::new(42).unwrap();
 
-        let mut filt = state.can1.modify_filters();
-        filt.clear();
-        filt.enable_bank(
+        state.can1.modify_filters().clear().enable_bank(
             0,
             [
                 ListEntry32::data_frames_with_id(target_id_1),
                 ListEntry32::remote_frames_with_id(target_id_2),
             ],
         );
-        drop(filt);
 
         // Frames with matching IDs should be accepted.
         let frame = Frame::new_data(target_id_1, []);
@@ -330,10 +321,11 @@ mod tests {
     /// higher-priority frame while all mailboxes are full.
     #[test]
     fn dequeue_lower_priority_frame(state: &mut State) {
-        let mut filt = state.can1.modify_filters();
-        filt.clear();
-        filt.enable_bank(0, Mask32::accept_all());
-        drop(filt);
+        state
+            .can1
+            .modify_filters()
+            .clear()
+            .enable_bank(0, Mask32::accept_all());
 
         defmt::assert!(state.can1.is_transmitter_idle());
 
