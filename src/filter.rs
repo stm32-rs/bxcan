@@ -209,20 +209,23 @@ impl<I: FilterOwner> MasterFilters<'_, I> {
     /// Disables all enabled filter banks.
     ///
     /// This causes all incoming frames to be disposed.
-    pub fn clear(&mut self) {
+    pub fn clear(&mut self) -> Self {
         self.banks_imm().clear();
+        self
     }
 
     /// Disables a filter bank.
     ///
     /// If `index` is out of bounds, this will panic.
-    pub fn disable_bank(&mut self, index: u8) {
+    pub fn disable_bank(&mut self, index: u8) -> Self {
         self.banks_imm().disable(index);
+        self
     }
 
     /// Configures a filter bank according to `config` and enables it.
-    pub fn enable_bank(&mut self, index: u8, config: impl Into<BankConfig>) {
+    pub fn enable_bank(&mut self, index: u8, config: impl Into<BankConfig>) -> Self {
         self.banks_imm().enable(index, config.into());
+        self
     }
 }
 
@@ -288,20 +291,23 @@ impl<I: Instance> SlaveFilters<'_, I> {
     /// Disables all enabled filter banks.
     ///
     /// This causes all incoming frames to be disposed.
-    pub fn clear(&mut self) {
+    pub fn clear(&mut self) -> Self {
         self.banks_imm().clear();
+        self
     }
 
     /// Disables a filter bank.
     ///
     /// If `index` is out of bounds, this will panic.
-    pub fn disable_bank(&mut self, index: u8) {
+    pub fn disable_bank(&mut self, index: u8) -> Self {
         self.banks_imm().disable(index);
+        self
     }
 
     /// Configures a filter bank according to `config` and enables it.
-    pub fn enable_bank(&mut self, index: u8, config: impl Into<BankConfig>) {
+    pub fn enable_bank(&mut self, index: u8, config: impl Into<BankConfig>) -> Self {
         self.banks_imm().enable(index, config.into());
+        self
     }
 }
 
