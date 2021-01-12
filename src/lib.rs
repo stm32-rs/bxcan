@@ -7,20 +7,20 @@
 //! Caveats:
 //! - Only RX FIFO 0 is supported, FIFO 1 will not be used.
 
-#![doc(html_root_url = "https://docs.rs/bxcan/0.2.3")]
+#![doc(html_root_url = "https://docs.rs/bxcan/0.3.0")]
 // Deny a few warnings in doctests, since rustdoc `allow`s many warnings by default
 #![doc(test(attr(deny(unused_imports, unused_must_use))))]
 #![no_std]
 
 pub mod filter;
 mod frame;
-mod id;
 mod interrupt;
 mod pac;
 mod readme;
 
+pub use embedded_can::{ExtendedId, Id, StandardId};
+
 pub use crate::frame::{Data, Frame, FramePriority};
-pub use crate::id::{ExtendedId, Id, StandardId};
 pub use crate::interrupt::{Interrupt, Interrupts};
 pub use crate::pac::can::RegisterBlock;
 
@@ -298,7 +298,12 @@ where
         // Enter init mode.
         can.mcr
             .modify(|_, w| w.sleep().clear_bit().inrq().set_bit());
-        while can.msr.read().inak().bit_is_clear() {}
+        loop {
+            let msr = can.msr.read();
+            if msr.slak().bit_is_clear() && msr.inak().bit_is_set() {
+                break;
+            }
+        }
 
         let mut config = CanConfig { _can: PhantomData };
         f(&mut config);
@@ -335,7 +340,12 @@ where
         let can = self.registers();
         can.mcr
             .modify(|_, w| w.sleep().set_bit().inrq().clear_bit());
-        while can.msr.read().slak().bit_is_clear() {}
+        loop {
+            let msr = can.msr.read();
+            if msr.slak().bit_is_set() && msr.inak().bit_is_clear() {
+                break;
+            }
+        }
     }
 
     /// Starts listening for a CAN interrupt.
@@ -417,6 +427,26 @@ impl<I: FilterOwner> Can<I> {
     }
 }
 
+impl<I> embedded_can::Can for Can<I>
+where
+    I: Instance,
+{
+    type Frame = Frame;
+
+    type Error = ();
+
+    fn try_transmit(
+        &mut self,
+        frame: &Self::Frame,
+    ) -> nb::Result<Option<Self::Frame>, Self::Error> {
+        self.transmit(frame).map_err(|e| e.map(|_| ()))
+    }
+
+    fn try_receive(&mut self) -> nb::Result<Self::Frame, Self::Error> {
+        self.receive()
+    }
+}
+
 /// Interface to the CAN transmitter part.
 pub struct Tx<I> {
     _can: PhantomData<I>,
@@ -484,8 +514,8 @@ where
                 tsr.tme0().bit_is_clear() && tsr.tme1().bit_is_clear() && tsr.tme2().bit_is_clear();
             if all_frames_are_pending {
                 // No free mailbox is available. This can only happen when three frames with
-                // descending priority were requested for transmission and all of them are
-                // blocked by bus traffic with even higher priority.
+                // ascending priority (descending IDs) were requested for transmission and all
+                // of them are blocked by bus traffic with even higher priority.
                 // To prevent a priority inversion abort and replace the lowest priority frame.
                 self.read_pending_mailbox(idx)
             } else {
@@ -501,8 +531,8 @@ where
         Ok(pending_frame)
     }
 
-    /// Returns `Ok` when the mailbox is free or has a lower priority than
-    /// identifier than `id`.
+    /// Returns `Ok` when the mailbox is free or if it contains pending frame with a
+    /// lower priority (higher ID) than the identifier `id`.
     fn check_priority(&self, idx: usize, id: IdReg) -> nb::Result<(), Infallible> {
         let can = self.registers();
 
@@ -511,7 +541,7 @@ where
         let tir = &can.tx[idx].tir.read();
 
         // Check the priority by comparing the identifiers. But first make sure the
-        // frame has not finished transmission (`TXRQ` == 0) in the meantime.
+        // frame has not finished the transmission (`TXRQ` == 0) in the meantime.
         if tir.txrq().bit_is_set() && id <= IdReg::from_register(tir.bits()) {
             // There's a mailbox whose priority is higher or equal
             // the priority of the new frame.

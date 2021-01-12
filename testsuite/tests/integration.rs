@@ -3,24 +3,31 @@
 
 use bxcan::{Can, Frame};
 use nb::block;
-use testsuite::{self, pac, CAN1};
+use testsuite::{self, pac, CAN1, CAN2};
 
 struct State {
     can1: Can<CAN1>,
+    can2: Can<CAN2>,
 }
 
 impl State {
     fn init() -> Self {
-        let mut periph = defmt::unwrap!(pac::Peripherals::take());
-        let (can1, _) = testsuite::init(periph.CAN1, periph.CAN2, &mut periph.RCC);
+        let periph = defmt::unwrap!(pac::Peripherals::take());
+        let (can1, can2) = testsuite::init(periph);
         let mut can1 = Can::new(can1);
         can1.configure(|c| {
             c.set_loopback(true);
             c.set_silent(true);
             c.set_bit_timing(0x00050000);
         });
+        let mut can2 = Can::new(can2);
+        can2.configure(|c| {
+            c.set_loopback(true);
+            c.set_silent(true);
+            c.set_bit_timing(0x00050000);
+        });
 
-        Self { can1 }
+        Self { can1, can2 }
     }
 
     /// Configures the slowest possible speed.
@@ -80,27 +87,30 @@ mod tests {
         state
     }
 
-    // FIXME: This is supposed to run on a device with 2 CAN peripherals.
-    /*#[test]
-    fn split_filters(state: &mut super::State) {
+    #[test]
+    fn split_filters(state: &mut State) {
         let mut filt = state.can1.modify_filters();
 
         filt.set_split(0);
         defmt::assert_eq!(filt.num_banks(), 0);
-        defmt::assert_eq!(filt.slave_filters().num_banks(), 14);
+        defmt::assert_eq!(filt.slave_filters().num_banks(), 28);
 
         filt.set_split(1);
         defmt::assert_eq!(filt.num_banks(), 1);
-        defmt::assert_eq!(filt.slave_filters().num_banks(), 13);
+        defmt::assert_eq!(filt.slave_filters().num_banks(), 27);
 
         filt.set_split(13);
         defmt::assert_eq!(filt.num_banks(), 13);
-        defmt::assert_eq!(filt.slave_filters().num_banks(), 1);
+        defmt::assert_eq!(filt.slave_filters().num_banks(), 15);
 
         filt.set_split(14);
         defmt::assert_eq!(filt.num_banks(), 14);
+        defmt::assert_eq!(filt.slave_filters().num_banks(), 14);
+
+        filt.set_split(28);
+        defmt::assert_eq!(filt.num_banks(), 28);
         defmt::assert_eq!(filt.slave_filters().num_banks(), 0);
-    }*/
+    }
 
     #[test]
     fn basic_roundtrip(state: &mut State) {
@@ -130,12 +140,13 @@ mod tests {
     #[test]
     fn filter_mask32_std(state: &mut State) {
         let target_id = StandardId::new(42).unwrap();
+        let mask = StandardId::MAX; // Exact match required
 
-        let mut filt = state
+        state
             .can1
             .modify_filters()
             .clear()
-            .enable_bank(0, Mask32::frames_with_std_id(target_id));
+            .enable_bank(0, Mask32::frames_with_std_id(target_id, mask));
 
         // Data frames with matching IDs should be accepted.
         let frame = Frame::new_data(target_id, []);
@@ -173,12 +184,14 @@ mod tests {
     #[test]
     fn filter_mask32_ext(state: &mut State) {
         let target_id = ExtendedId::new(0).unwrap();
+        let mask = ExtendedId::MAX; // Exact match required
 
         state
             .can1
             .modify_filters()
             .clear()
-            .enable_bank(0, Mask32::frames_with_ext_id(target_id));
+            .enable_bank(0, Mask32::frames_with_ext_id(target_id, mask));
+
         // Data frames with matching IDs should be accepted.
         let frame = Frame::new_data(target_id, []);
         defmt::assert!(roundtrip_frame(&frame, state));
@@ -213,12 +226,13 @@ mod tests {
     fn filter_mask16(state: &mut State) {
         let target_id_1 = StandardId::new(16).unwrap();
         let target_id_2 = StandardId::new(17).unwrap();
+        let mask = StandardId::MAX; // Exact match required
 
         state.can1.modify_filters().clear().enable_bank(
             0,
             [
-                Mask16::frames_with_std_id(target_id_1),
-                Mask16::frames_with_std_id(target_id_2),
+                Mask16::frames_with_std_id(target_id_1, mask),
+                Mask16::frames_with_std_id(target_id_2, mask),
             ],
         );
 
@@ -363,5 +377,50 @@ mod tests {
         defmt::assert!(matches!(state.can1.receive(), Err(nb::Error::WouldBlock)));
 
         state.go_fast();
+    }
+
+    /// Performs an external roundtrip from CAN1 to CAN2 and vice-versa.
+    ///
+    /// Requires that both are hooked up to the same CAN bus.
+    #[test]
+    fn ext_roundtrip(state: &mut State) {
+        state.can1.configure(|c| {
+            c.set_loopback(false);
+            c.set_silent(false);
+            c.set_bit_timing(0x00050000);
+        });
+        state.can2.configure(|c| {
+            c.set_loopback(false);
+            c.set_silent(false);
+            c.set_bit_timing(0x00050000);
+        });
+
+        let mut filt1 = state.can1.modify_filters();
+        filt1.set_split(1);
+        filt1.clear();
+        filt1.enable_bank(0, Mask32::accept_all());
+
+        let mut filt2 = filt1.slave_filters();
+        filt2.clear();
+        filt2.enable_bank(1, Mask32::accept_all());
+        drop(filt1);
+
+        block!(state.can1.enable()).unwrap();
+        block!(state.can2.enable()).unwrap();
+
+        let frame = Frame::new_data(ExtendedId::new(123).unwrap(), [9, 8, 7]);
+        block!(state.can2.transmit(&frame)).unwrap();
+
+        while !state.can2.is_transmitter_idle() {}
+
+        let received = state.can1.receive().unwrap();
+        defmt::assert_eq!(frame, received);
+
+        block!(state.can1.transmit(&frame)).unwrap();
+
+        while !state.can1.is_transmitter_idle() {}
+
+        let received = state.can2.receive().unwrap();
+        defmt::assert_eq!(frame, received);
     }
 }

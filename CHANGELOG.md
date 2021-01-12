@@ -4,26 +4,37 @@
 
 No changes.
 
-## [0.2.3 - 2020-12-09](https://github.com/jonas-schievink/bxcan/releases/tag/v0.2.3)
+## [0.3.0 - 2020-12-28](https://github.com/stm32-rs/bxcan/releases/tag/v0.3.0)
+
+### New Features
+
+* Configurable mask for masked filters.
+* Implement the `embedded-can` traits.
+
+### Breaking Changes
+
+* Changes to masked filters required some breaking API changes.
+
+## [0.2.3 - 2020-12-09](https://github.com/stm32-rs/bxcan/releases/tag/v0.2.3)
 
 ### Fixes
 
 * Fix a panic when aborting transmission of a lower-priority frame.
 * Fix comparison when checking for a lower-priority mailbox.
 
-## [0.2.2 - 2020-12-05](https://github.com/jonas-schievink/bxcan/releases/tag/v0.2.2)
+## [0.2.2 - 2020-12-05](https://github.com/stm32-rs/bxcan/releases/tag/v0.2.2)
 
 ### New Features
 
 * Add `Can::is_transmitter_idle`.
 
-## [0.2.1 - 2020-12-05](https://github.com/jonas-schievink/bxcan/releases/tag/v0.2.1)
+## [0.2.1 - 2020-12-05](https://github.com/stm32-rs/bxcan/releases/tag/v0.2.1)
 
 ### Breaking Changes
 
 * Update `SlaveFilters::enable_bank` to also take `impl Into<T>`.
 
-## [0.2.0 - 2020-12-05](https://github.com/jonas-schievink/bxcan/releases/tag/v0.2.0)
+## [0.2.0 - 2020-12-05](https://github.com/stm32-rs/bxcan/releases/tag/v0.2.0)
 
 ### New Features
 
@@ -43,6 +54,6 @@ No changes.
 * Rename some filter methods to clarify their meaning.
 * Remove `MasterInstance::Slave` associated type.
 
-## [0.1.0 - 2020-12-01](https://github.com/jonas-schievink/bxcan/releases/tag/v0.1.0)
+## [0.1.0 - 2020-12-01](https://github.com/stm32-rs/bxcan/releases/tag/v0.1.0)
 
 Initial release.

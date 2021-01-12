@@ -2,7 +2,7 @@
 
 [![crates.io](https://img.shields.io/crates/v/bxcan.svg)](https://crates.io/crates/bxcan)
 [![docs.rs](https://docs.rs/bxcan/badge.svg)](https://docs.rs/bxcan/)
-![CI](https://github.com/jonas-schievink/bxcan/workflows/CI/badge.svg)
+![CI](https://github.com/stm32-rs/bxcan/workflows/CI/badge.svg)
 
 This crate implements a driver for the bxCAN peripheral found in many low- to
 middle-end STM32 microcontrollers.
@@ -16,7 +16,7 @@ Add an entry to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-bxcan = "0.2.3"
+bxcan = "0.3.0"
 ```
 
 Check the [API Documentation](https://docs.rs/bxcan/) for how to use the
