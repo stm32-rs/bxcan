@@ -270,12 +270,13 @@ impl<I: FilterOwner> MasterFilters<'_, I> {
 
 impl<I: MasterInstance> MasterFilters<'_, I> {
     /// Sets the index at which the filter banks owned by the slave peripheral start.
-    pub fn set_split(&mut self, split_index: u8) {
+    pub fn set_split(&mut self, split_index: u8) -> &mut Self {
         assert!(split_index <= I::NUM_FILTER_BANKS);
         self.registers()
             .fmr
             .modify(|_, w| unsafe { w.can2sb().bits(split_index) });
         self.bank_count = split_index;
+        self
     }
 
     /// Accesses the filters assigned to the slave peripheral.
