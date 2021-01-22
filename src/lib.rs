@@ -211,14 +211,11 @@ impl PartialOrd for IdReg {
 }
 
 /// Configuration proxy to be used with `Can::configure()`.
-pub struct CanConfig<I> {
-    _can: PhantomData<I>,
+pub struct CanConfig<'a, I: Instance> {
+    _can: PhantomData<&'a mut I>,
 }
 
-impl<I> CanConfig<I>
-where
-    I: Instance,
-{
+impl<I: Instance> CanConfig<'_, I> {
     fn registers(&self) -> &RegisterBlock {
         unsafe { &*I::REGISTERS }
     }
@@ -235,25 +232,44 @@ where
     ///
     /// Then copy the `CAN_BUS_TIME` register value from the table and pass it as the `btr`
     /// parameter to this method.
-    pub fn set_bit_timing(&mut self, btr: u32) {
+    pub fn set_bit_timing(&mut self, btr: u32) -> &mut Self {
         let can = self.registers();
         can.btr.modify(|r, w| unsafe {
             let mode_bits = r.bits() & 0xC000_0000;
             w.bits(mode_bits | btr)
         });
+        self
     }
 
     /// Enables or disables loopback mode: Internally connects the TX and RX
     /// signals together.
-    pub fn set_loopback(&mut self, enabled: bool) {
+    pub fn set_loopback(&mut self, enabled: bool) -> &mut Self {
         let can = self.registers();
         can.btr.modify(|_, w| w.lbkm().bit(enabled));
+        self
     }
 
     /// Enables or disables silent mode: Disconnects the TX signal from the pin.
-    pub fn set_silent(&mut self, enabled: bool) {
+    pub fn set_silent(&mut self, enabled: bool) -> &mut Self {
         let can = self.registers();
         can.btr.modify(|_, w| w.silm().bit(enabled));
+        self
+    }
+}
+
+impl<I: Instance> Drop for CanConfig<'_, I> {
+    #[inline]
+    fn drop(&mut self) {
+        // Leave initialization mode
+        let can = self.registers();
+        can.mcr
+            .modify(|_, w| w.sleep().set_bit().inrq().clear_bit());
+        loop {
+            let msr = can.msr.read();
+            if msr.slak().bit_is_set() && msr.inak().bit_is_clear() {
+                break;
+            }
+        }
     }
 }
 
@@ -307,9 +323,23 @@ where
 
         let mut config = CanConfig { _can: PhantomData };
         f(&mut config);
+    }
 
-        // Leave init mode: go back to sleep.
-        self.sleep();
+    /// Configure bit timings and silent/loop-back mode.
+    pub fn modify_config(&mut self) -> CanConfig<'_, I> {
+        let can = self.registers();
+
+        // Enter init mode.
+        can.mcr
+            .modify(|_, w| w.sleep().clear_bit().inrq().set_bit());
+        loop {
+            let msr = can.msr.read();
+            if msr.slak().bit_is_clear() && msr.inak().bit_is_set() {
+                break;
+            }
+        }
+
+        CanConfig { _can: PhantomData }
     }
 
     /// Configures the automatic wake-up feature.

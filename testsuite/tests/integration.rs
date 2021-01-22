@@ -15,17 +15,15 @@ impl State {
         let periph = defmt::unwrap!(pac::Peripherals::take());
         let (can1, can2) = testsuite::init(periph);
         let mut can1 = Can::new(can1);
-        can1.configure(|c| {
-            c.set_loopback(true);
-            c.set_silent(true);
-            c.set_bit_timing(0x00050000);
-        });
+        can1.modify_config()
+            .set_loopback(true)
+            .set_silent(true)
+            .set_bit_timing(0x00050000);
         let mut can2 = Can::new(can2);
-        can2.configure(|c| {
-            c.set_loopback(true);
-            c.set_silent(true);
-            c.set_bit_timing(0x00050000);
-        });
+        can2.modify_config()
+            .set_loopback(true)
+            .set_silent(true)
+            .set_bit_timing(0x00050000);
 
         Self { can1, can2 }
     }
@@ -34,21 +32,21 @@ impl State {
     ///
     /// This is useful for testing recovery when the mailboxes are full.
     fn go_slow(&mut self) {
-        self.can1.configure(|c| {
-            c.set_loopback(true);
-            c.set_silent(true);
-            c.set_bit_timing(0x007f_03ff);
-        });
+        self.can1
+            .modify_config()
+            .set_loopback(true)
+            .set_silent(true)
+            .set_bit_timing(0x007f_03ff);
         nb::block!(self.can1.enable()).unwrap();
     }
 
     /// Configures the default (fast) speed.
     fn go_fast(&mut self) {
-        self.can1.configure(|c| {
-            c.set_loopback(true);
-            c.set_silent(true);
-            c.set_bit_timing(0x00050000);
-        });
+        self.can1
+            .modify_config()
+            .set_loopback(true)
+            .set_silent(true)
+            .set_bit_timing(0x00050000);
         nb::block!(self.can1.enable()).unwrap();
     }
 }
@@ -384,26 +382,32 @@ mod tests {
     /// Requires that both are hooked up to the same CAN bus.
     #[test]
     fn ext_roundtrip(state: &mut State) {
-        state.can1.configure(|c| {
-            c.set_loopback(false);
-            c.set_silent(false);
-            c.set_bit_timing(0x00050000);
-        });
-        state.can2.configure(|c| {
-            c.set_loopback(false);
-            c.set_silent(false);
-            c.set_bit_timing(0x00050000);
-        });
+        state
+            .can1
+            .modify_config()
+            .set_loopback(false)
+            .set_silent(false)
+            .set_bit_timing(0x00050000);
+        state
+            .can2
+            .modify_config()
+            .set_loopback(false)
+            .set_silent(false)
+            .set_bit_timing(0x00050000);
 
-        let mut filt1 = state.can1.modify_filters();
-        filt1.set_split(1);
-        filt1.clear();
-        filt1.enable_bank(0, Mask32::accept_all());
+        state
+            .can1
+            .modify_filters()
+            .set_split(1)
+            .clear()
+            .enable_bank(0, Mask32::accept_all());
 
-        let mut filt2 = filt1.slave_filters();
-        filt2.clear();
-        filt2.enable_bank(1, Mask32::accept_all());
-        drop(filt1);
+        state
+            .can1
+            .modify_filters()
+            .slave_filters()
+            .clear()
+            .enable_bank(1, Mask32::accept_all());
 
         block!(state.can1.enable()).unwrap();
         block!(state.can2.enable()).unwrap();
