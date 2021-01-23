@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+No changes.
+
+## [0.4.0 - 2021-01-23](https://github.com/stm32-rs/bxcan/releases/tag/v0.4.0)
+
 ### Breaking Changes
 
 * Revamp filter and configuration API to allow method chaining ([#10] [#12]).
