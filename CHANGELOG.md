@@ -2,7 +2,23 @@
 
 ## Unreleased
 
-No changes.
+### Breaking Changes
+
+* Revamp filter and configuration API to allow method chaining ([#10] [#12]).
+
+### Bugfixes
+
+* Wait for SLAK and INAK bits when changing mode ([#8]).
+
+[#8]: https://github.com/stm32-rs/bxcan/pull/8
+[#10]: https://github.com/stm32-rs/bxcan/pull/10
+[#12]: https://github.com/stm32-rs/bxcan/pull/12
+
+### Misc
+
+* Clarify comments for the `transmit()` method ([#9]).
+
+[#9]: https://github.com/stm32-rs/bxcan/pull/9
 
 ## [0.3.0 - 2020-12-28](https://github.com/stm32-rs/bxcan/releases/tag/v0.3.0)
 
