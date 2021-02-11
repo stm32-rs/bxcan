@@ -1,0 +1,39 @@
+# This is a Hardware-In-the-Loop (HIL) workflow running on a self-hosted GHA runner.
+#
+# Due to security issues with the self-hosted runner, it is triggered from the `hil` job in
+# `ci.yml` and runs in a private repo. That way, only people that can push to this repo gain access
+# to the runner.
+#
+# The runner environment is the Docker image `myoung34/github-runner`. Additional packages must be
+# installed manually by the workflow. The working directory is *not* cleared between runs, in order
+# to avoid recompiling all the tooling.
+
+name: HIL
+
+on:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  NO_STD_TARGET: thumbv6m-none-eabi
+
+jobs:
+  hil:
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+        target: ${{ env.NO_STD_TARGET }}
+    - name: Install native dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libusb-1.0-0-dev pkg-config
+    - name: Install probe-run / flip-link
+      run: cargo install probe-run flip-link
+    - name: Run tests on hardware
+      working-directory: testsuite
+      run: cargo test
