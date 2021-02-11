@@ -94,3 +94,12 @@ jobs:
         repo: jonas-schievink/bxcan-ci
         token: ${{ secrets.PRIVATE_CI_PERSONAL_ACCESS_TOKEN }}
         repost-logs: true
+
+  ci:
+    if: ${{ success() }}
+    # all new jobs must be added to this list
+    needs: [test, no-std, lint, hil]
+    runs-on: ubuntu-20.04
+    steps:
+      - name: CI succeeded
+        run: exit 0
