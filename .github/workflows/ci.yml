@@ -99,7 +99,7 @@ jobs:
     if: ${{ success() }}
     # all new jobs must be added to this list
     needs: [test, no-std, lint, hil]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: CI succeeded
         run: exit 0
