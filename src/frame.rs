@@ -273,7 +273,7 @@ impl PartialEq for Data {
 impl Eq for Data {}
 
 impl Format for Data {
-    fn format(&self, fmt: &mut defmt::Formatter) {
+    fn format(&self, fmt: defmt::Formatter) {
         self.as_ref().format(fmt)
     }
 }
