@@ -17,7 +17,7 @@ harness = false
 bxcan = { path = ".." }
 cortex-m = "0.6.3"
 cortex-m-rt = "0.6.13"
-defmt = "0.1.3"
+defmt = "0.2.0"
 defmt-rtt = "0.1.0"
 defmt-test = "0.1.1"
 panic-probe = "0.1.0"
