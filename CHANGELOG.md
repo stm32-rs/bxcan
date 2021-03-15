@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+No changes.
+
+## [0.5.0 - 2021-03-15](https://github.com/stm32-rs/bxcan/releases/tag/v0.5.0)
+
 ### Breaking Changes
 
 * Update to defmt 0.2.0 ([#17]).
