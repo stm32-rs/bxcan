@@ -1,6 +1,6 @@
 //! bxCAN on-device testsuite definitions.
 //!
-//! This is meant to run on an STM32F103, aka a Blue Pill, and will probably break on other chips.
+//! This is meant to run on an STM32F105, and will probably break on other chips.
 //!
 //! We deliberately avoid depending on any STM32 HAL here, since that can cause weird cyclic
 //! dependencies once bxcan is used by them.
