@@ -419,6 +419,20 @@ where
         unsafe { Tx::<I>::conjure().transmit(frame) }
     }
 
+    /// Puts a CAN frame in a free transmit mailbox for transmission on the bus.
+    ///
+    /// This function is equivalent to [`transmit`](#method.transmit) except that it returns the
+    /// mailbox that was accessed. This can be used to keep track of additional information
+    /// about each frame, even when frames are placed into transmit mailboxes and later
+    /// removed before being transmitted.
+    pub fn transmit_and_get_mailbox(
+        &mut self,
+        frame: &Frame,
+    ) -> nb::Result<(Option<Frame>, Mailbox), Infallible> {
+        // Safety: We have a `&mut self` and have unique access to the peripheral.
+        unsafe { Tx::<I>::conjure().transmit_and_get_mailbox(frame) }
+    }
+
     /// Returns `true` if no frame is pending for transmission.
     pub fn is_transmitter_idle(&self) -> bool {
         // Safety: We have a `&mut self` and have unique access to the peripheral.
@@ -522,6 +536,20 @@ where
     /// If all transmit mailboxes are full, a higher priority frame replaces the
     /// lowest priority frame, which is returned as `Ok(Some(frame))`.
     pub fn transmit(&mut self, frame: &Frame) -> nb::Result<Option<Frame>, Infallible> {
+        self.transmit_and_get_mailbox(frame)
+            .map(|(frame, _mailbox)| frame)
+    }
+
+    /// Puts a CAN frame in a free transmit mailbox for transmission on the bus.
+    ///
+    /// This function is equivalent to [`transmit`](#method.transmit) except that it returns the
+    /// mailbox that was accessed. This can be used to keep track of additional information
+    /// about each frame, even when frames are placed into transmit mailboxes and later
+    /// removed before being transmitted.
+    pub fn transmit_and_get_mailbox(
+        &mut self,
+        frame: &Frame,
+    ) -> nb::Result<(Option<Frame>, Mailbox), Infallible> {
         let can = self.registers();
 
         // Get the index of the next free mailbox or the one with the lowest priority.
@@ -558,7 +586,14 @@ where
         };
 
         self.write_mailbox(idx, frame);
-        Ok(pending_frame)
+
+        let mailbox = match idx {
+            0 => Mailbox::Mailbox0,
+            1 => Mailbox::Mailbox1,
+            2 => Mailbox::Mailbox2,
+            _ => unreachable!(),
+        };
+        Ok((pending_frame, mailbox))
     }
 
     /// Returns `Ok` when the mailbox is free or if it contains pending frame with a
@@ -729,4 +764,15 @@ where
 
         Ok(frame)
     }
+}
+
+/// The three transmit mailboxes
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub enum Mailbox {
+    /// Transmit mailbox 0
+    Mailbox0 = 0,
+    /// Transmit mailbox 1
+    Mailbox1 = 1,
+    /// Transmit mailbox 2
+    Mailbox2 = 2,
 }
