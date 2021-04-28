@@ -439,6 +439,17 @@ where
         unsafe { Tx::<I>::conjure().is_idle() }
     }
 
+    /// Attempts to abort the sending of a frame that is pending in a mailbox.
+    ///
+    /// If there is no frame in the provided mailbox, this function has no effect and returns false.
+    ///
+    /// If there is a frame in the provided mailbox, this function returns true if the transmission
+    /// was aborted. This function returns false if the frame was successfully transmitted.
+    pub fn abort(&mut self, mailbox: Mailbox) -> bool {
+        // Safety: We have a `&mut self` and have unique access to the peripheral.
+        unsafe { Tx::<I>::conjure().abort(mailbox) }
+    }
+
     /// Returns a received frame if available.
     ///
     /// Returns `Err` when a frame was lost due to buffer overrun.
@@ -639,7 +650,7 @@ where
     }
 
     fn read_pending_mailbox(&mut self, idx: usize) -> Option<Frame> {
-        if self.abort(idx) {
+        if self.abort_by_index(idx) {
             let can = self.registers();
             debug_assert!(idx < 3);
             let mb = unsafe { &can.tx.get_unchecked(idx) };
@@ -664,7 +675,7 @@ where
     }
 
     /// Tries to abort a pending frame. Returns `true` when aborted.
-    fn abort(&mut self, idx: usize) -> bool {
+    fn abort_by_index(&mut self, idx: usize) -> bool {
         let can = self.registers();
 
         can.tsr.write(|w| unsafe { w.bits(abort_mask(idx)) });
@@ -675,6 +686,28 @@ where
             if tsr & abort_mask(idx) == 0 {
                 break tsr & ok_mask(idx) == 0;
             }
+        }
+    }
+
+    /// Attempts to abort the sending of a frame that is pending in a mailbox.
+    ///
+    /// If there is no frame in the provided mailbox, this function has no effect and returns false.
+    ///
+    /// If there is a frame in the provided mailbox, this function returns true if the transmission
+    /// was aborted. This function returns false if the frame was successfully transmitted.
+    pub fn abort(&mut self, mailbox: Mailbox) -> bool {
+        // If the mailbox is empty, the value of TXOKx depends on what happened with the previous
+        // frame in that mailbox. Only call abort_by_index() if the mailbox is not empty.
+        let tsr = self.registers().tsr.read();
+        let mailbox_empty = match mailbox {
+            Mailbox::Mailbox0 => tsr.tme0().bit_is_set(),
+            Mailbox::Mailbox1 => tsr.tme1().bit_is_set(),
+            Mailbox::Mailbox2 => tsr.tme2().bit_is_set(),
+        };
+        if mailbox_empty {
+            false
+        } else {
+            self.abort_by_index(mailbox as usize)
         }
     }
 

@@ -4,7 +4,7 @@
 
 ### New Features
 
-* Add transmit function that returns the mailbox number ([#25]).
+* Add transmit function that returns the mailbox number, and transmit abort function ([#25]).
 
 [#25]: https://github.com/stm32-rs/bxcan/pull/25
 
