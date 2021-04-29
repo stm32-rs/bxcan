@@ -2,7 +2,11 @@
 
 ## Unreleased
 
-No changes.
+### New Features
+
+* Add transmit function that returns the mailbox number, and transmit abort function ([#25]).
+
+[#25]: https://github.com/stm32-rs/bxcan/pull/25
 
 ## [0.5.0 - 2021-03-15](https://github.com/stm32-rs/bxcan/releases/tag/v0.5.0)
 

@@ -419,10 +419,35 @@ where
         unsafe { Tx::<I>::conjure().transmit(frame) }
     }
 
+    /// Puts a CAN frame in a free transmit mailbox for transmission on the bus.
+    ///
+    /// This function is equivalent to [`transmit`](#method.transmit) except that it returns the
+    /// mailbox that was accessed. This can be used to keep track of additional information
+    /// about each frame, even when frames are placed into transmit mailboxes and later
+    /// removed before being transmitted.
+    pub fn transmit_and_get_mailbox(
+        &mut self,
+        frame: &Frame,
+    ) -> nb::Result<(Option<Frame>, Mailbox), Infallible> {
+        // Safety: We have a `&mut self` and have unique access to the peripheral.
+        unsafe { Tx::<I>::conjure().transmit_and_get_mailbox(frame) }
+    }
+
     /// Returns `true` if no frame is pending for transmission.
     pub fn is_transmitter_idle(&self) -> bool {
         // Safety: We have a `&mut self` and have unique access to the peripheral.
         unsafe { Tx::<I>::conjure().is_idle() }
+    }
+
+    /// Attempts to abort the sending of a frame that is pending in a mailbox.
+    ///
+    /// If there is no frame in the provided mailbox, this function has no effect and returns false.
+    ///
+    /// If there is a frame in the provided mailbox, this function returns true if the transmission
+    /// was aborted. This function returns false if the frame was successfully transmitted.
+    pub fn abort(&mut self, mailbox: Mailbox) -> bool {
+        // Safety: We have a `&mut self` and have unique access to the peripheral.
+        unsafe { Tx::<I>::conjure().abort(mailbox) }
     }
 
     /// Returns a received frame if available.
@@ -522,6 +547,20 @@ where
     /// If all transmit mailboxes are full, a higher priority frame replaces the
     /// lowest priority frame, which is returned as `Ok(Some(frame))`.
     pub fn transmit(&mut self, frame: &Frame) -> nb::Result<Option<Frame>, Infallible> {
+        self.transmit_and_get_mailbox(frame)
+            .map(|(frame, _mailbox)| frame)
+    }
+
+    /// Puts a CAN frame in a free transmit mailbox for transmission on the bus.
+    ///
+    /// This function is equivalent to [`transmit`](#method.transmit) except that it returns the
+    /// mailbox that was accessed. This can be used to keep track of additional information
+    /// about each frame, even when frames are placed into transmit mailboxes and later
+    /// removed before being transmitted.
+    pub fn transmit_and_get_mailbox(
+        &mut self,
+        frame: &Frame,
+    ) -> nb::Result<(Option<Frame>, Mailbox), Infallible> {
         let can = self.registers();
 
         // Get the index of the next free mailbox or the one with the lowest priority.
@@ -558,7 +597,14 @@ where
         };
 
         self.write_mailbox(idx, frame);
-        Ok(pending_frame)
+
+        let mailbox = match idx {
+            0 => Mailbox::Mailbox0,
+            1 => Mailbox::Mailbox1,
+            2 => Mailbox::Mailbox2,
+            _ => unreachable!(),
+        };
+        Ok((pending_frame, mailbox))
     }
 
     /// Returns `Ok` when the mailbox is free or if it contains pending frame with a
@@ -604,7 +650,7 @@ where
     }
 
     fn read_pending_mailbox(&mut self, idx: usize) -> Option<Frame> {
-        if self.abort(idx) {
+        if self.abort_by_index(idx) {
             let can = self.registers();
             debug_assert!(idx < 3);
             let mb = unsafe { &can.tx.get_unchecked(idx) };
@@ -629,7 +675,7 @@ where
     }
 
     /// Tries to abort a pending frame. Returns `true` when aborted.
-    fn abort(&mut self, idx: usize) -> bool {
+    fn abort_by_index(&mut self, idx: usize) -> bool {
         let can = self.registers();
 
         can.tsr.write(|w| unsafe { w.bits(abort_mask(idx)) });
@@ -640,6 +686,28 @@ where
             if tsr & abort_mask(idx) == 0 {
                 break tsr & ok_mask(idx) == 0;
             }
+        }
+    }
+
+    /// Attempts to abort the sending of a frame that is pending in a mailbox.
+    ///
+    /// If there is no frame in the provided mailbox, this function has no effect and returns false.
+    ///
+    /// If there is a frame in the provided mailbox, this function returns true if the transmission
+    /// was aborted. This function returns false if the frame was successfully transmitted.
+    pub fn abort(&mut self, mailbox: Mailbox) -> bool {
+        // If the mailbox is empty, the value of TXOKx depends on what happened with the previous
+        // frame in that mailbox. Only call abort_by_index() if the mailbox is not empty.
+        let tsr = self.registers().tsr.read();
+        let mailbox_empty = match mailbox {
+            Mailbox::Mailbox0 => tsr.tme0().bit_is_set(),
+            Mailbox::Mailbox1 => tsr.tme1().bit_is_set(),
+            Mailbox::Mailbox2 => tsr.tme2().bit_is_set(),
+        };
+        if mailbox_empty {
+            false
+        } else {
+            self.abort_by_index(mailbox as usize)
         }
     }
 
@@ -729,4 +797,15 @@ where
 
         Ok(frame)
     }
+}
+
+/// The three transmit mailboxes
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub enum Mailbox {
+    /// Transmit mailbox 0
+    Mailbox0 = 0,
+    /// Transmit mailbox 1
+    Mailbox1 = 1,
+    /// Transmit mailbox 2
+    Mailbox2 = 2,
 }
