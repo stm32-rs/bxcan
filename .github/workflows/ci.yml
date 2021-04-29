@@ -67,6 +67,8 @@ jobs:
     - name: Check code formatting
       run: cargo fmt -- --check
 
+  # I haven't found a good way to host the runner, and don't really have time to fix infra issues
+  # at the moment, so the HIL suite is currently skipped.
   hil:
     runs-on: ubuntu-latest
     # The secrets are not supplied for 'pull_request' events, so don't run for those.
@@ -98,7 +100,7 @@ jobs:
   ci:
     if: ${{ success() }}
     # all new jobs must be added to this list
-    needs: [test, no-std, lint, hil]
+    needs: [test, no-std, lint]
     runs-on: ubuntu-latest
     steps:
       - name: CI succeeded
