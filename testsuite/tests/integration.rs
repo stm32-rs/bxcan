@@ -1,72 +1,8 @@
 #![no_std]
 #![no_main]
 
-use bxcan::{Can, Frame};
 use nb::block;
-use testsuite::{self, pac, CAN1, CAN2};
-
-struct State {
-    can1: Can<CAN1>,
-    can2: Can<CAN2>,
-}
-
-impl State {
-    fn init() -> Self {
-        let periph = defmt::unwrap!(pac::Peripherals::take());
-        let (can1, can2) = testsuite::init(periph);
-        let mut can1 = Can::new(can1);
-        can1.modify_config()
-            .set_loopback(true)
-            .set_silent(true)
-            .set_bit_timing(0x00050000);
-        let mut can2 = Can::new(can2);
-        can2.modify_config()
-            .set_loopback(true)
-            .set_silent(true)
-            .set_bit_timing(0x00050000);
-
-        Self { can1, can2 }
-    }
-
-    /// Configures the slowest possible speed.
-    ///
-    /// This is useful for testing recovery when the mailboxes are full.
-    fn go_slow(&mut self) {
-        self.can1
-            .modify_config()
-            .set_loopback(true)
-            .set_silent(true)
-            .set_bit_timing(0x007f_03ff);
-        nb::block!(self.can1.enable()).unwrap();
-    }
-
-    /// Configures the default (fast) speed.
-    fn go_fast(&mut self) {
-        self.can1
-            .modify_config()
-            .set_loopback(true)
-            .set_silent(true)
-            .set_bit_timing(0x00050000);
-        nb::block!(self.can1.enable()).unwrap();
-    }
-}
-
-fn roundtrip_frame(frame: &Frame, state: &mut State) -> bool {
-    block!(state.can1.transmit(frame)).unwrap();
-    defmt::assert!(!state.can1.is_transmitter_idle());
-
-    // Wait until the transmission has completed.
-    while !state.can1.is_transmitter_idle() {}
-
-    match state.can1.receive() {
-        Ok(received) => {
-            defmt::assert_eq!(received, *frame);
-            true
-        }
-        Err(nb::Error::WouldBlock) => false,
-        Err(nb::Error::Other(e)) => defmt::panic!("{:?}", e),
-    }
-}
+use testsuite::{self, State};
 
 #[defmt_test::tests]
 mod tests {
@@ -77,12 +13,7 @@ mod tests {
 
     #[init]
     fn init() -> State {
-        let mut state = State::init();
-
-        state.can1.modify_filters().clear();
-        nb::block!(state.can1.enable()).unwrap();
-
-        state
+        State::init()
     }
 
     #[test]
@@ -119,10 +50,10 @@ mod tests {
             .enable_bank(0, Mask32::accept_all());
 
         let frame = Frame::new_data(StandardId::new(0).unwrap(), []);
-        defmt::assert!(roundtrip_frame(&frame, state));
+        defmt::assert!(state.roundtrip_frame(&frame));
 
         let frame = Frame::new_data(ExtendedId::new(0xFFFF).unwrap(), [1, 2, 3, 4, 5]);
-        defmt::assert!(roundtrip_frame(&frame, state));
+        defmt::assert!(state.roundtrip_frame(&frame));
     }
 
     #[test]
@@ -130,9 +61,9 @@ mod tests {
         state.can1.modify_filters().clear();
 
         let frame = Frame::new_data(ExtendedId::new(0).unwrap(), []);
-        defmt::assert!(!roundtrip_frame(&frame, state));
+        defmt::assert!(!state.roundtrip_frame(&frame));
         let frame = Frame::new_data(StandardId::new(0).unwrap(), []);
-        defmt::assert!(!roundtrip_frame(&frame, state));
+        defmt::assert!(!state.roundtrip_frame(&frame));
     }
 
     #[test]
@@ -148,35 +79,35 @@ mod tests {
 
         // Data frames with matching IDs should be accepted.
         let frame = Frame::new_data(target_id, []);
-        defmt::assert!(roundtrip_frame(&frame, state));
+        defmt::assert!(state.roundtrip_frame(&frame));
 
         let frame = Frame::new_data(target_id, [1, 2, 3, 4, 5, 6, 7, 8]);
-        defmt::assert!(roundtrip_frame(&frame, state));
+        defmt::assert!(state.roundtrip_frame(&frame));
 
         // ...remote frames with the same IDs should also be accepted.
         let frame = Frame::new_remote(target_id, 0);
-        defmt::assert!(roundtrip_frame(&frame, state));
+        defmt::assert!(state.roundtrip_frame(&frame));
 
         let frame = Frame::new_remote(target_id, 7);
-        defmt::assert!(roundtrip_frame(&frame, state));
+        defmt::assert!(state.roundtrip_frame(&frame));
 
         let frame = Frame::new_remote(target_id, 8);
-        defmt::assert!(roundtrip_frame(&frame, state));
+        defmt::assert!(state.roundtrip_frame(&frame));
 
         // Different IDs should *not* be received.
         let frame = Frame::new_data(StandardId::new(1000).unwrap(), []);
-        defmt::assert!(!roundtrip_frame(&frame, state));
+        defmt::assert!(!state.roundtrip_frame(&frame));
 
         // Extended IDs that match the filter should be *rejected*.
         let frame = Frame::new_data(ExtendedId::new(target_id.as_raw().into()).unwrap(), []);
-        defmt::assert!(!roundtrip_frame(&frame, state));
+        defmt::assert!(!state.roundtrip_frame(&frame));
 
         // ...even when shifted upwards to match the standard ID bits.
         let frame = Frame::new_data(
             ExtendedId::new(u32::from(target_id.as_raw()) << 18).unwrap(),
             [],
         );
-        defmt::assert!(!roundtrip_frame(&frame, state));
+        defmt::assert!(!state.roundtrip_frame(&frame));
     }
 
     #[test]
@@ -192,32 +123,32 @@ mod tests {
 
         // Data frames with matching IDs should be accepted.
         let frame = Frame::new_data(target_id, []);
-        defmt::assert!(roundtrip_frame(&frame, state));
+        defmt::assert!(state.roundtrip_frame(&frame));
 
         let frame = Frame::new_data(target_id, [1, 2, 3, 4, 5, 6, 7, 8]);
-        defmt::assert!(roundtrip_frame(&frame, state));
+        defmt::assert!(state.roundtrip_frame(&frame));
 
         // ...remote frames with the same IDs should also be accepted.
         let frame = Frame::new_remote(target_id, 0);
-        defmt::assert!(roundtrip_frame(&frame, state));
+        defmt::assert!(state.roundtrip_frame(&frame));
 
         let frame = Frame::new_remote(target_id, 7);
-        defmt::assert!(roundtrip_frame(&frame, state));
+        defmt::assert!(state.roundtrip_frame(&frame));
 
         let frame = Frame::new_remote(target_id, 8);
-        defmt::assert!(roundtrip_frame(&frame, state));
+        defmt::assert!(state.roundtrip_frame(&frame));
 
         // Different IDs should *not* be received.
         let frame = Frame::new_data(ExtendedId::new(1000).unwrap(), []);
-        defmt::assert!(!roundtrip_frame(&frame, state));
+        defmt::assert!(!state.roundtrip_frame(&frame));
 
         // Standard IDs should be *rejected* even if their value matches the filter mask.
         let frame = Frame::new_data(StandardId::new(0).unwrap(), []);
-        defmt::assert!(!roundtrip_frame(&frame, state));
+        defmt::assert!(!state.roundtrip_frame(&frame));
 
         // Different (standard) IDs should *not* be received.
         let frame = Frame::new_data(StandardId::MAX, []);
-        defmt::assert!(!roundtrip_frame(&frame, state));
+        defmt::assert!(!state.roundtrip_frame(&frame));
     }
 
     #[test]
@@ -236,27 +167,27 @@ mod tests {
 
         // Data frames with matching IDs should be accepted.
         let frame = Frame::new_data(target_id_1, []);
-        defmt::assert!(roundtrip_frame(&frame, state));
+        defmt::assert!(state.roundtrip_frame(&frame));
         let frame = Frame::new_data(target_id_2, []);
-        defmt::assert!(roundtrip_frame(&frame, state));
+        defmt::assert!(state.roundtrip_frame(&frame));
 
         // Incorrect IDs should be rejected.
         let frame = Frame::new_data(StandardId::new(15).unwrap(), []);
-        defmt::assert!(!roundtrip_frame(&frame, state));
+        defmt::assert!(!state.roundtrip_frame(&frame));
         let frame = Frame::new_data(StandardId::new(18).unwrap(), []);
-        defmt::assert!(!roundtrip_frame(&frame, state));
+        defmt::assert!(!state.roundtrip_frame(&frame));
 
         // Extended frames with the same ID are rejected, because the upper bits do not match.
         let frame = Frame::new_data(ExtendedId::new(16).unwrap(), []);
-        defmt::assert!(!roundtrip_frame(&frame, state));
+        defmt::assert!(!state.roundtrip_frame(&frame));
         let frame = Frame::new_data(ExtendedId::new(17).unwrap(), []);
-        defmt::assert!(!roundtrip_frame(&frame, state));
+        defmt::assert!(!state.roundtrip_frame(&frame));
 
         // Extended frames whose upper bits match the filter value are *still* rejected.
         let frame = Frame::new_data(ExtendedId::new(16 << 18).unwrap(), []);
-        defmt::assert!(!roundtrip_frame(&frame, state));
+        defmt::assert!(!state.roundtrip_frame(&frame));
         let frame = Frame::new_data(ExtendedId::new(17 << 18).unwrap(), []);
-        defmt::assert!(!roundtrip_frame(&frame, state));
+        defmt::assert!(!state.roundtrip_frame(&frame));
     }
 
     /// `List32` filter mode accepting standard CAN frames.
@@ -275,21 +206,21 @@ mod tests {
 
         // Frames with matching IDs should be accepted.
         let frame = Frame::new_data(target_id_1, []);
-        defmt::assert!(roundtrip_frame(&frame, state));
+        defmt::assert!(state.roundtrip_frame(&frame));
         let frame = Frame::new_remote(target_id_2, 8);
-        defmt::assert!(roundtrip_frame(&frame, state));
+        defmt::assert!(state.roundtrip_frame(&frame));
 
         // Date/Remote frame type must match.
         let frame = Frame::new_remote(target_id_1, 8);
-        defmt::assert!(!roundtrip_frame(&frame, state));
+        defmt::assert!(!state.roundtrip_frame(&frame));
         let frame = Frame::new_data(target_id_2, []);
-        defmt::assert!(!roundtrip_frame(&frame, state));
+        defmt::assert!(!state.roundtrip_frame(&frame));
 
         // Frames with matching, but *extended* IDs should be rejected.
         let frame = Frame::new_data(ExtendedId::new(target_id_1.as_raw().into()).unwrap(), []);
-        defmt::assert!(!roundtrip_frame(&frame, state));
+        defmt::assert!(!state.roundtrip_frame(&frame));
         let frame = Frame::new_remote(ExtendedId::new(target_id_2.as_raw().into()).unwrap(), 8);
-        defmt::assert!(!roundtrip_frame(&frame, state));
+        defmt::assert!(!state.roundtrip_frame(&frame));
     }
 
     /// `List32` filter mode accepting extended CAN frames.
@@ -308,25 +239,25 @@ mod tests {
 
         // Frames with matching IDs should be accepted.
         let frame = Frame::new_data(target_id_1, []);
-        defmt::assert!(roundtrip_frame(&frame, state));
+        defmt::assert!(state.roundtrip_frame(&frame));
         let frame = Frame::new_remote(target_id_2, 8);
-        defmt::assert!(roundtrip_frame(&frame, state));
+        defmt::assert!(state.roundtrip_frame(&frame));
 
         // Date/Remote frame type must match.
         let frame = Frame::new_remote(target_id_1, 8);
-        defmt::assert!(!roundtrip_frame(&frame, state));
+        defmt::assert!(!state.roundtrip_frame(&frame));
         let frame = Frame::new_data(target_id_2, []);
-        defmt::assert!(!roundtrip_frame(&frame, state));
+        defmt::assert!(!state.roundtrip_frame(&frame));
 
         // Other IDs are rejected.
         let frame = Frame::new_remote(ExtendedId::new(43).unwrap(), 1);
-        defmt::assert!(!roundtrip_frame(&frame, state));
+        defmt::assert!(!state.roundtrip_frame(&frame));
         let frame = Frame::new_remote(ExtendedId::new(41).unwrap(), 1);
-        defmt::assert!(!roundtrip_frame(&frame, state));
+        defmt::assert!(!state.roundtrip_frame(&frame));
 
         // Matching standard IDs are rejected.
         let frame = Frame::new_remote(StandardId::new(42).unwrap(), 1);
-        defmt::assert!(!roundtrip_frame(&frame, state));
+        defmt::assert!(!state.roundtrip_frame(&frame));
     }
 
     /// Tests that a low-priority frame in a mailbox is aborted and returned when enqueuing a
