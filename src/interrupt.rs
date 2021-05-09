@@ -8,16 +8,16 @@ use defmt::Format;
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Format)]
 #[non_exhaustive]
 pub enum Interrupt {
-    Sleep = 17,
-    Wakeup = 16,
-    Error = 15,
-    Fifo1Overrun = 6,
-    Fifo1Full = 5,
-    Fifo1MessagePending = 4,
-    Fifo0Overrun = 3,
-    Fifo0Full = 2,
-    Fifo0MessagePending = 1,
-    TransmitMailboxEmpty = 0,
+    Sleep = 1 << 17,
+    Wakeup = 1 << 16,
+    Error = 1 << 15,
+    Fifo1Overrun = 1 << 6,
+    Fifo1Full = 1 << 5,
+    Fifo1MessagePending = 1 << 4,
+    Fifo0Overrun = 1 << 3,
+    Fifo0Full = 1 << 2,
+    Fifo0MessagePending = 1 << 1,
+    TransmitMailboxEmpty = 1 << 0,
 }
 
 bitflags::bitflags! {

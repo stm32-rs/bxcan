@@ -6,7 +6,13 @@
 
 * Add transmit function that returns the mailbox number, and transmit abort function ([#25]).
 
+### Fixes
+
+* The `Can::enable_interrupt` and `Can::disable_interrupt` functions now manipulate the correct bits in the interrupt
+  enable register ([#29]).
+
 [#25]: https://github.com/stm32-rs/bxcan/pull/25
+[#29]: https://github.com/stm32-rs/bxcan/pull/29
 
 ## [0.5.0 - 2021-03-15](https://github.com/stm32-rs/bxcan/releases/tag/v0.5.0)
 
