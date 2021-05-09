@@ -1,15 +1,13 @@
 #![no_std]
 #![no_main]
 
-use nb::block;
-use testsuite::{self, State};
-
 #[defmt_test::tests]
 mod tests {
     use bxcan::filter::{ListEntry32, Mask16, Mask32};
     use bxcan::{ExtendedId, Frame, StandardId};
 
-    use super::*;
+    use nb::block;
+    use testsuite::State;
 
     #[init]
     fn init() -> State {
