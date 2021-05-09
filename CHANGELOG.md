@@ -9,10 +9,10 @@
 ### Fixes
 
 * The `Can::enable_interrupt` and `Can::disable_interrupt` functions now manipulate the correct bits in the interrupt
-  enable register ([#28]).
+  enable register ([#29]).
 
 [#25]: https://github.com/stm32-rs/bxcan/pull/25
-[#28]: https://github.com/stm32-rs/bxcan/pull/28
+[#29]: https://github.com/stm32-rs/bxcan/pull/29
 
 ## [0.5.0 - 2021-03-15](https://github.com/stm32-rs/bxcan/releases/tag/v0.5.0)
 
