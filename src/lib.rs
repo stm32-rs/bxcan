@@ -7,7 +7,7 @@
 //! Caveats:
 //! - Only RX FIFO 0 is supported, FIFO 1 will not be used.
 
-#![doc(html_root_url = "https://docs.rs/bxcan/0.5.0")]
+#![doc(html_root_url = "https://docs.rs/bxcan/0.5.1")]
 // Deny a few warnings in doctests, since rustdoc `allow`s many warnings by default
 #![doc(test(attr(deny(unused_imports, unused_must_use))))]
 #![no_std]
