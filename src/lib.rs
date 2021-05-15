@@ -298,6 +298,15 @@ where
         &mut self.instance
     }
 
+    /// Disables the CAN interface and returns back the raw peripheral it was created from.
+    ///
+    /// The peripheral is disabled by setting `RESET` in `CAN_MCR`, which causes the peripheral to
+    /// enter sleep mode.
+    pub fn free(self) -> I {
+        self.registers().mcr.write(|w| w.reset().set_bit());
+        self.instance
+    }
+
     /// Configure bit timings and silent/loop-back mode.
     ///
     /// Acutal configuration happens on the `CanConfig` that is passed to the
