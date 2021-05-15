@@ -29,6 +29,8 @@ embedded-can = "0.3"
 
 [profile.test]
 opt-level = "s"
+# FIXME: Turning LTO off makes the testsuite executables 2.5x larger.
+# Turning it on makes `cargo test` on the host take a bit long to build.
 lto = true
 
 # cargo-release configuration
