@@ -5,7 +5,8 @@
 ### New Features
 
 * Add transmit function that returns the mailbox number, and transmit abort function ([#25]).
-* Added more methods to acknowledge interrupts ([#30]).
+* Add more methods to acknowledge interrupts ([#30]).
+* Add `Can::free`, a way to get back ownership of the raw peripheral ([#33]).
 
 ### Fixes
 
@@ -19,6 +20,7 @@
 [#25]: https://github.com/stm32-rs/bxcan/pull/25
 [#29]: https://github.com/stm32-rs/bxcan/pull/29
 [#30]: https://github.com/stm32-rs/bxcan/pull/30
+[#33]: https://github.com/stm32-rs/bxcan/pull/33
 
 ## [0.5.0 - 2021-03-15](https://github.com/stm32-rs/bxcan/releases/tag/v0.5.0)
 
