@@ -72,7 +72,7 @@ jobs:
   hil:
     runs-on: ubuntu-latest
     # The secrets are not supplied for 'pull_request' events, so don't run for those.
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && false
     steps:
     - uses: actions/checkout@v2
       with:
