@@ -7,6 +7,9 @@
 
 #![no_std]
 
+pub mod interrupt;
+
+use cortex_m::peripheral::NVIC;
 use defmt_rtt as _;
 use panic_probe as _;
 
@@ -38,6 +41,20 @@ unsafe impl Instance for CAN2 {
 }
 
 fn init(p: pac::Peripherals) -> (CAN1, CAN2) {
+    // Enable CAN interrupts
+    // Safety: `irq` is safe when all interrupts it manages are enabled.
+    unsafe {
+        NVIC::unmask(pac::Interrupt::USB_HP_CAN_TX);
+        NVIC::unmask(pac::Interrupt::USB_LP_CAN_RX0);
+        NVIC::unmask(pac::Interrupt::CAN_RX1);
+        NVIC::unmask(pac::Interrupt::CAN_SCE);
+        NVIC::unmask(pac::Interrupt::CAN2_TX);
+        NVIC::unmask(pac::Interrupt::CAN2_RX0);
+        NVIC::unmask(pac::Interrupt::CAN2_RX1);
+        NVIC::unmask(pac::Interrupt::CAN2_SCE);
+    }
+
+    // Initialize CAN peripherals
     p.RCC
         .apb1enr
         .modify(|_, w| w.can1en().enabled().can2en().enabled());
@@ -117,6 +134,7 @@ impl State {
             .set_silent(true)
             .set_bit_timing(0x00050000);
         nb::block!(self.can1.enable()).unwrap();
+        nb::block!(self.can2.enable()).unwrap();
     }
 
     pub fn roundtrip_frame(&mut self, frame: &Frame) -> bool {
