@@ -13,6 +13,10 @@ test = false
 name = "integration"
 harness = false
 
+[[test]]
+name = "interrupts"
+harness = false
+
 [dependencies]
 bxcan = { path = ".." }
 cortex-m = "0.6.3"
@@ -24,8 +28,9 @@ panic-probe = "0.2.0"
 #panic-probe = { version = "0.2.0", features = ["print-defmt"] }
 # NB: We use F107 here, which seems to share its SVD file with the F105. The difference is that the
 # 107 has Ethernet, but we don't use that.
-stm32f1 = { version = "0.12.1", features = ["stm32f107"] }
+stm32f1 = { version = "0.12.1", features = ["stm32f107", "rt"] }
 nb = "1.0.0"
+irq = "0.2.3"
 
 [features]
 # set logging levels here
