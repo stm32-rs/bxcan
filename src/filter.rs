@@ -79,8 +79,9 @@ impl Mask16 {
     /// Creates a 16-bit identifier mask that accepts all frames with the given standard
     /// ID and mask combination.
     ///
-    /// Filter logic: frame_accepted = (incoming_id & mask) == (id & mask)
-    /// A mask of all all ones (0x7FF) matches the exact ID, a mask of 0 matches all IDs.
+    /// Filter logic: `frame_accepted = (incoming_id & mask) == (id & mask)`
+    ///
+    /// A mask of all all ones (`0x7FF`) matches an exact ID, a mask of 0 matches all IDs.
     ///
     /// Both data and remote frames with `id` will be accepted. Any extended frames will be
     /// rejected.
@@ -117,8 +118,9 @@ impl Mask32 {
     /// Creates a 32-bit identifier mask that accepts all frames with the given extended
     /// ID and mask combination.
     ///
-    /// Filter logic: frame_accepted = (incoming_id & mask) == (id & mask)
-    /// A mask of all all ones (0x1FFF_FFFF) matches the exact ID, a mask of 0 matches all IDs.
+    /// Filter logic: `frame_accepted = (incoming_id & mask) == (id & mask)`
+    ///
+    /// A mask of all all ones (`0x1FFF_FFFF`) matches an exact ID, a mask of 0 matches all IDs.
     ///
     /// Both data and remote frames with `id` will be accepted. Standard frames will be rejected.
     pub fn frames_with_ext_id(id: ExtendedId, mask: ExtendedId) -> Self {
@@ -131,8 +133,9 @@ impl Mask32 {
     /// Creates a 32-bit identifier mask that accepts all frames with the given standard
     /// ID and mask combination.
     ///
-    /// Filter logic: frame_accepted = (incoming_id & mask) == (id & mask)
-    /// A mask of all all ones (0x7FF) matches the exact ID, a mask of 0 matches all IDs.
+    /// Filter logic: `frame_accepted = (incoming_id & mask) == (id & mask)`
+    ///
+    /// A mask of all all ones (`0x7FF`) matches the exact ID, a mask of 0 matches all IDs.
     ///
     /// Both data and remote frames with `id` will be accepted. Extended frames will be rejected.
     pub fn frames_with_std_id(id: StandardId, mask: StandardId) -> Self {

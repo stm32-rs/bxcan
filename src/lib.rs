@@ -69,11 +69,11 @@ pub unsafe trait Instance {
 ///
 /// In master-slave-instance setups, only the master instance owns the filter banks, and needs to
 /// split some of them off for use by the slave instance. In that case, the master instance should
-/// implement `FilterOwner` and `MasterInstance`, while the slave instance should only implement
-/// `Instance`.
+/// implement [`FilterOwner`] and [`MasterInstance`], while the slave instance should only implement
+/// [`Instance`].
 ///
 /// In single-instance configurations, the instance owns all filter banks and they can not be split
-/// off. In that case, the instance should implement `Instance` and `FilterOwner`.
+/// off. In that case, the instance should implement [`Instance`] and [`FilterOwner`].
 ///
 /// # Safety
 ///
@@ -296,7 +296,7 @@ impl<I> Can<I>
 where
     I: Instance,
 {
-    /// Creates a CAN interface, taking ownership of the raw peripheral.
+    /// Creates a CAN interface, taking ownership of the raw peripheral instance.
     pub fn new(instance: I) -> Self {
         Can { instance }
     }
@@ -630,10 +630,9 @@ where
 
     /// Puts a CAN frame in a free transmit mailbox for transmission on the bus.
     ///
-    /// This function is equivalent to [`transmit`](#method.transmit) except that it returns the
-    /// mailbox that was accessed. This can be used to keep track of additional information
-    /// about each frame, even when frames are placed into transmit mailboxes and later
-    /// removed before being transmitted.
+    /// This function is equivalent to [`Tx::transmit`] except that it returns the mailbox that was
+    /// accessed. This can be used to keep track of additional information about each frame, even
+    /// when frames are placed into transmit mailboxes and later removed before being transmitted.
     pub fn transmit_and_get_mailbox(
         &mut self,
         frame: &Frame,
