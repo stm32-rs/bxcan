@@ -4,8 +4,22 @@
 //! STM32 microcontrollers. HALs for compatible chips can reexport this crate and implement its
 //! traits to easily expose a featureful CAN driver.
 //!
-//! Caveats:
-//! - Only RX FIFO 0 is supported, FIFO 1 will not be used.
+//! # Features
+//!
+//! - Supports both single- and dual-peripheral configurations (where one bxCAN instance manages the
+//!   filters of a secondary instance).
+//! - Handles standard and extended frames, data and remote frames.
+//! - Support for interrupts emitted by the bxCAN peripheral.
+//! - Transmission respects CAN IDs and protects against priority inversion (a lower-priority frame
+//!   may be rejected when enqueueing a higher-priority one).
+//! - Implements the [`embedded-can`] traits.
+//!
+//! # Limitations
+//!
+//! - Currently, only RX FIFO 0 is supported, and FIFO 1 will not be used.
+//! - Support for querying error states and handling error interrupts is incomplete.
+//!
+//! [`embedded-can`]: https://docs.rs/embedded-can
 
 #![doc(html_root_url = "https://docs.rs/bxcan/0.5.1")]
 // Deny a few warnings in doctests, since rustdoc `allow`s many warnings by default
