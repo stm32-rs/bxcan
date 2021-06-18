@@ -3,12 +3,12 @@ mod tests;
 
 use core::cmp::Ordering;
 use core::ops::{Deref, DerefMut};
-use defmt::Format;
 
 use crate::{Id, IdReg};
 
 /// A CAN data or remote frame.
-#[derive(Clone, Debug, Eq, Format)]
+#[derive(Clone, Debug, Eq)]
+#[cfg_attr(feature = "unstable-defmt", derive(defmt::Format))]
 pub struct Frame {
     pub(crate) id: IdReg,
     pub(crate) data: Data,
@@ -272,7 +272,8 @@ impl PartialEq for Data {
 
 impl Eq for Data {}
 
-impl Format for Data {
+#[cfg(feature = "unstable-defmt")]
+impl defmt::Format for Data {
     fn format(&self, fmt: defmt::Formatter<'_>) {
         self.as_ref().format(fmt)
     }

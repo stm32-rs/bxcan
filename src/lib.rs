@@ -19,7 +19,16 @@
 //! - Currently, only RX FIFO 0 is supported, and FIFO 1 will not be used.
 //! - Support for querying error states and handling error interrupts is incomplete.
 //!
+//! # Cargo Features
+//!
+//! | Feature | Description |
+//! |---------|-------------|
+//! | `unstable-defmt` | Implements [`defmt`]'s `Format` trait for the types in this crate.[^1] |
+//!
+//! [^1]: The specific version of defmt is unspecified and may be updated in a patch release.
+//!
 //! [`embedded-can`]: https://docs.rs/embedded-can
+//! [`defmt`]: https://docs.rs/defmt
 
 #![doc(html_root_url = "https://docs.rs/bxcan/0.5.1")]
 // Deny a few warnings in doctests, since rustdoc `allow`s many warnings by default
@@ -43,7 +52,6 @@ use core::cmp::{Ord, Ordering};
 use core::convert::{Infallible, TryInto};
 use core::marker::PhantomData;
 use core::ptr::NonNull;
-use defmt::Format;
 
 use self::pac::generic::*; // To make the PAC extraction build
 
@@ -119,7 +127,8 @@ pub enum Error {
 /// Lower identifier values have a higher priority. Additionally standard frames
 /// have a higher priority than extended frames and data frames have a higher
 /// priority than remote frames.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Format)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "unstable-defmt", derive(defmt::Format))]
 struct IdReg(u32);
 
 impl IdReg {
@@ -876,7 +885,8 @@ where
 }
 
 /// The three transmit mailboxes
-#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Format)]
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
+#[cfg_attr(feature = "unstable-defmt", derive(defmt::Format))]
 pub enum Mailbox {
     /// Transmit mailbox 0
     Mailbox0 = 0,
