@@ -322,33 +322,6 @@ where
     }
 
     /// Configure bit timings and silent/loop-back mode.
-    ///
-    /// Acutal configuration happens on the `CanConfig` that is passed to the
-    /// closure. It must be done this way because those configuration bits can
-    /// only be set if the CAN controller is in a special init mode.
-    /// Puts the peripheral in sleep mode afterwards. `Can::enable()` must be
-    /// called to exit sleep mode and start reception and transmission.
-    pub fn configure<F>(&mut self, f: F)
-    where
-        F: FnOnce(&mut CanConfig<I>),
-    {
-        let can = self.registers();
-
-        // Enter init mode.
-        can.mcr
-            .modify(|_, w| w.sleep().clear_bit().inrq().set_bit());
-        loop {
-            let msr = can.msr.read();
-            if msr.slak().bit_is_clear() && msr.inak().bit_is_set() {
-                break;
-            }
-        }
-
-        let mut config = CanConfig { _can: PhantomData };
-        f(&mut config);
-    }
-
-    /// Configure bit timings and silent/loop-back mode.
     pub fn modify_config(&mut self) -> CanConfig<'_, I> {
         let can = self.registers();
 
