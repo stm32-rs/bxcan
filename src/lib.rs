@@ -51,6 +51,7 @@ use crate::filter::MasterFilters;
 use core::cmp::{Ord, Ordering};
 use core::convert::{Infallible, TryInto};
 use core::marker::PhantomData;
+use core::mem;
 use core::ptr::NonNull;
 
 use self::pac::generic::*; // To make the PAC extraction build
@@ -233,16 +234,13 @@ impl PartialOrd for IdReg {
     }
 }
 
-/// Configuration proxy to be used with `Can::configure()`.
+/// Configuration proxy returned by [`Can::modify_config`].
+#[must_use = "`CanConfig` leaves the peripheral in uninitialized state, call `CanConfig::enable` or explicitly drop the value"]
 pub struct CanConfig<'a, I: Instance> {
-    _can: PhantomData<&'a mut I>,
+    can: &'a mut Can<I>,
 }
 
 impl<I: Instance> CanConfig<'_, I> {
-    fn registers(&self) -> &RegisterBlock {
-        unsafe { &*I::REGISTERS }
-    }
-
     /// Configures the bit timings.
     ///
     /// You can use <http://www.bittiming.can-wiki.info/> to calculate the `btr` parameter. Enter
@@ -255,8 +253,8 @@ impl<I: Instance> CanConfig<'_, I> {
     ///
     /// Then copy the `CAN_BUS_TIME` register value from the table and pass it as the `btr`
     /// parameter to this method.
-    pub fn set_bit_timing(&mut self, btr: u32) -> &mut Self {
-        let can = self.registers();
+    pub fn set_bit_timing(self, btr: u32) -> Self {
+        let can = self.can.registers();
         can.btr.modify(|r, w| unsafe {
             let mode_bits = r.bits() & 0xC000_0000;
             w.bits(mode_bits | btr)
@@ -266,25 +264,41 @@ impl<I: Instance> CanConfig<'_, I> {
 
     /// Enables or disables loopback mode: Internally connects the TX and RX
     /// signals together.
-    pub fn set_loopback(&mut self, enabled: bool) -> &mut Self {
-        let can = self.registers();
+    pub fn set_loopback(self, enabled: bool) -> Self {
+        let can = self.can.registers();
         can.btr.modify(|_, w| w.lbkm().bit(enabled));
         self
     }
 
     /// Enables or disables silent mode: Disconnects the TX signal from the pin.
-    pub fn set_silent(&mut self, enabled: bool) -> &mut Self {
-        let can = self.registers();
+    pub fn set_silent(self, enabled: bool) -> Self {
+        let can = self.can.registers();
         can.btr.modify(|_, w| w.silm().bit(enabled));
         self
     }
-}
 
-impl<I: Instance> Drop for CanConfig<'_, I> {
-    #[inline]
-    fn drop(&mut self) {
-        // Leave initialization mode
-        let can = self.registers();
+    /// Leaves initialization mode and enables the peripheral.
+    ///
+    /// To sync with the CAN bus, this will block until 11 consecutive recessive bits are detected
+    /// on the bus.
+    ///
+    /// If you want to finish configuration without enabling the peripheral, you can [`drop`] the
+    /// [`CanConfig`] instead.
+    pub fn enable(mut self) {
+        self.leave_init_mode();
+
+        match nb::block!(self.can.enable_non_blocking()) {
+            Ok(()) => {}
+            Err(void) => match void {},
+        }
+
+        // Don't run the destructor.
+        mem::forget(self);
+    }
+
+    /// Leaves initialization mode, enters sleep mode.
+    fn leave_init_mode(&mut self) {
+        let can = self.can.registers();
         can.mcr
             .modify(|_, w| w.sleep().set_bit().inrq().clear_bit());
         loop {
@@ -296,7 +310,14 @@ impl<I: Instance> Drop for CanConfig<'_, I> {
     }
 }
 
-/// Interface to a CAN peripheral.
+impl<I: Instance> Drop for CanConfig<'_, I> {
+    #[inline]
+    fn drop(&mut self) {
+        self.leave_init_mode();
+    }
+}
+
+/// Interface to a bxCAN peripheral.
 pub struct Can<I: Instance> {
     instance: I,
 }
@@ -331,6 +352,8 @@ where
     }
 
     /// Configure bit timings and silent/loop-back mode.
+    ///
+    /// Calling this method will enter initialization mode.
     pub fn modify_config(&mut self) -> CanConfig<'_, I> {
         let can = self.registers();
 
@@ -344,7 +367,7 @@ where
             }
         }
 
-        CanConfig { _can: PhantomData }
+        CanConfig { can: self }
     }
 
     /// Configures the automatic wake-up feature.
@@ -359,10 +382,14 @@ where
         can.mcr.modify(|_, w| w.awum().bit(enabled));
     }
 
-    /// Start reception and transmission.
+    /// Leaves initialization mode and enables the peripheral (non-blocking version).
     ///
-    /// Waits for 11 consecutive recessive bits to sync to the CAN bus.
-    pub fn enable(&mut self) -> nb::Result<(), Infallible> {
+    /// Usually, it is recommended to call [`CanConfig::enable`] instead. This method is only needed
+    /// if you want non-blocking initialization.
+    ///
+    /// If this returns [`WouldBlock`][nb::Error::WouldBlock], the peripheral will enable itself
+    /// in the background.
+    pub fn enable_non_blocking(&mut self) -> nb::Result<(), Infallible> {
         let can = self.registers();
         let msr = can.msr.read();
         if msr.slak().bit_is_set() {

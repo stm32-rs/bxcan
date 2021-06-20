@@ -112,13 +112,14 @@ impl State {
             .modify_config()
             .set_loopback(true)
             .set_silent(true)
-            .set_bit_timing(0x007f_03ff);
+            .set_bit_timing(0x007f_03ff)
+            .enable();
         self.can2
             .modify_config()
             .set_loopback(true)
             .set_silent(true)
-            .set_bit_timing(0x007f_03ff);
-        nb::block!(self.can1.enable()).unwrap();
+            .set_bit_timing(0x007f_03ff)
+            .enable();
     }
 
     /// Configures the default (fast) speed.
@@ -127,14 +128,14 @@ impl State {
             .modify_config()
             .set_loopback(true)
             .set_silent(true)
-            .set_bit_timing(0x00050000);
+            .set_bit_timing(0x00050000)
+            .enable();
         self.can2
             .modify_config()
             .set_loopback(true)
             .set_silent(true)
-            .set_bit_timing(0x00050000);
-        nb::block!(self.can1.enable()).unwrap();
-        nb::block!(self.can2.enable()).unwrap();
+            .set_bit_timing(0x00050000)
+            .enable();
     }
 
     pub fn roundtrip_frame(&mut self, frame: &Frame) -> bool {

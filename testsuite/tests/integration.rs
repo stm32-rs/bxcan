@@ -316,13 +316,15 @@ mod tests {
             .modify_config()
             .set_loopback(false)
             .set_silent(false)
-            .set_bit_timing(0x00050000);
+            .set_bit_timing(0x00050000)
+            .enable();
         state
             .can2
             .modify_config()
             .set_loopback(false)
             .set_silent(false)
-            .set_bit_timing(0x00050000);
+            .set_bit_timing(0x00050000)
+            .enable();
 
         state
             .can1
@@ -337,9 +339,6 @@ mod tests {
             .slave_filters()
             .clear()
             .enable_bank(1, Mask32::accept_all());
-
-        block!(state.can1.enable()).unwrap();
-        block!(state.can2.enable()).unwrap();
 
         let frame = Frame::new_data(ExtendedId::new(123).unwrap(), [9, 8, 7]);
         block!(state.can2.transmit(&frame)).unwrap();

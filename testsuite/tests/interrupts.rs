@@ -228,15 +228,15 @@ mod tests {
             .modify_config()
             .set_loopback(false)
             .set_silent(false)
-            .set_bit_timing(0x00050000);
+            .set_bit_timing(0x00050000)
+            .enable();
         state
             .can2
             .modify_config()
             .set_loopback(false)
             .set_silent(false)
-            .set_bit_timing(0x00050000);
-        block!(state.can1.enable()).unwrap();
-        block!(state.can2.enable()).unwrap();
+            .set_bit_timing(0x00050000)
+            .enable();
 
         let m = Mutex::new(&mut *state);
         let wakeup_interrupt_fired = AtomicBool::new(false);
