@@ -306,6 +306,16 @@ mod tests {
         state.go_fast();
     }
 
+    #[test]
+    fn enable_non_blocking(state: &mut State) {
+        drop(state.can1.modify_config());
+        block!(state.can1.enable_non_blocking()).unwrap();
+        defmt::assert!(state.can1.is_transmitter_idle());
+
+        let frame = Frame::new_data(StandardId::new(0).unwrap(), []);
+        defmt::assert!(state.roundtrip_frame(&frame));
+    }
+
     /// Performs an external roundtrip from CAN1 to CAN2 and vice-versa.
     ///
     /// Requires that both are hooked up to the same CAN bus.
