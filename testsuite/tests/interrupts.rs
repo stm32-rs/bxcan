@@ -181,6 +181,11 @@ mod tests {
 
             // Reception of the 4th message should have caused an overrun interrupt.
             defmt::assert!(interrupt_fired.load(Ordering::Relaxed));
+
+            // Drain the receive FIFO for subsequent tests.
+            defmt::unwrap!(block!(m.lock(|state| state.can1.receive())));
+            defmt::unwrap!(block!(m.lock(|state| state.can1.receive())));
+            defmt::unwrap!(block!(m.lock(|state| state.can1.receive())));
         });
 
         state.can1.disable_interrupt(Interrupt::Fifo0Overrun);
@@ -256,6 +261,10 @@ mod tests {
                 while !state.can2.is_transmitter_idle() {}
             );
             defmt::assert!(wakeup_interrupt_fired.load(Ordering::Relaxed));
+
+            // Frame should still be received correctly.
+            let recvd = defmt::unwrap!(block!(m.lock(|state| state.can1.receive())));
+            defmt::assert_eq!(recvd, frame);
         });
 
         state.can1.disable_interrupt(Interrupt::Wakeup);
