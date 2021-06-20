@@ -348,6 +348,12 @@ where
     }
 
     /// Configures the automatic wake-up feature.
+    ///
+    /// This is turned off by default.
+    ///
+    /// When turned on, an incoming frame will cause the peripheral to wake up from sleep and
+    /// receive the frame. If enabled, [`Interrupt::Wakeup`] will also be triggered by the incoming
+    /// frame.
     pub fn set_automatic_wakeup(&mut self, enabled: bool) {
         let can = self.registers();
         can.mcr.modify(|_, w| w.awum().bit(enabled));
