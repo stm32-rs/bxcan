@@ -479,23 +479,9 @@ where
     /// Transmit order is preserved for frames with identical identifiers.
     /// If all transmit mailboxes are full, a higher priority frame replaces the
     /// lowest priority frame, which is returned as `Ok(Some(frame))`.
-    pub fn transmit(&mut self, frame: &Frame) -> nb::Result<Option<Frame>, Infallible> {
+    pub fn transmit(&mut self, frame: &Frame) -> nb::Result<TransmitStatus, Infallible> {
         // Safety: We have a `&mut self` and have unique access to the peripheral.
         unsafe { Tx::<I>::conjure().transmit(frame) }
-    }
-
-    /// Puts a CAN frame in a free transmit mailbox for transmission on the bus.
-    ///
-    /// This function is equivalent to [`transmit`](#method.transmit) except that it returns the
-    /// mailbox that was accessed. This can be used to keep track of additional information
-    /// about each frame, even when frames are placed into transmit mailboxes and later
-    /// removed before being transmitted.
-    pub fn transmit_and_get_mailbox(
-        &mut self,
-        frame: &Frame,
-    ) -> nb::Result<(Option<Frame>, Mailbox), Infallible> {
-        // Safety: We have a `&mut self` and have unique access to the peripheral.
-        unsafe { Tx::<I>::conjure().transmit_and_get_mailbox(frame) }
     }
 
     /// Returns `true` if no frame is pending for transmission.
@@ -559,7 +545,11 @@ where
         &mut self,
         frame: &Self::Frame,
     ) -> nb::Result<Option<Self::Frame>, Self::Error> {
-        self.transmit(frame).map_err(|e| e.map(|_| ()))
+        match self.transmit(frame) {
+            Ok(status) => Ok(status.dequeued_frame().cloned()),
+            Err(nb::Error::WouldBlock) => Err(nb::Error::WouldBlock),
+            Err(nb::Error::Other(e)) => match e {},
+        }
     }
 
     fn try_receive(&mut self) -> nb::Result<Self::Frame, Self::Error> {
@@ -592,7 +582,7 @@ where
 
     /// Creates a `&mut Self` out of thin air.
     ///
-    /// This is only safe if it is the only way to access an `Rx<I>`.
+    /// This is only safe if it is the only way to access a `Tx<I>`.
     unsafe fn conjure_by_ref<'a>() -> &'a mut Self {
         // Cause out of bounds access when `Self` is not zero-sized.
         [()][core::mem::size_of::<Self>()];
@@ -605,26 +595,13 @@ where
         unsafe { &*I::REGISTERS }
     }
 
-    /// Puts a CAN frame in a free transmit mailbox for transmission on the bus.
+    /// Puts a CAN frame in a transmit mailbox for transmission on the bus.
     ///
     /// Frames are transmitted to the bus based on their priority (identifier).
     /// Transmit order is preserved for frames with identical identifiers.
     /// If all transmit mailboxes are full, a higher priority frame replaces the
     /// lowest priority frame, which is returned as `Ok(Some(frame))`.
-    pub fn transmit(&mut self, frame: &Frame) -> nb::Result<Option<Frame>, Infallible> {
-        self.transmit_and_get_mailbox(frame)
-            .map(|(frame, _mailbox)| frame)
-    }
-
-    /// Puts a CAN frame in a free transmit mailbox for transmission on the bus.
-    ///
-    /// This function is equivalent to [`Tx::transmit`] except that it returns the mailbox that was
-    /// accessed. This can be used to keep track of additional information about each frame, even
-    /// when frames are placed into transmit mailboxes and later removed before being transmitted.
-    pub fn transmit_and_get_mailbox(
-        &mut self,
-        frame: &Frame,
-    ) -> nb::Result<(Option<Frame>, Mailbox), Infallible> {
+    pub fn transmit(&mut self, frame: &Frame) -> nb::Result<TransmitStatus, Infallible> {
         let can = self.registers();
 
         // Get the index of the next free mailbox or the one with the lowest priority.
@@ -668,7 +645,10 @@ where
             2 => Mailbox::Mailbox2,
             _ => unreachable!(),
         };
-        Ok((pending_frame, mailbox))
+        Ok(TransmitStatus {
+            dequeued_frame: pending_frame,
+            mailbox,
+        })
     }
 
     /// Returns `Ok` when the mailbox is free or if it contains pending frame with a
@@ -733,7 +713,7 @@ where
             // Abort request failed because the frame was already sent (or being sent) on
             // the bus. All mailboxes are now free. This can happen for small prescaler
             // values (e.g. 1MBit/s bit timing with a source clock of 8MHz) or when an ISR
-            // has preemted the execution.
+            // has preempted the execution.
             None
         }
     }
@@ -863,8 +843,8 @@ where
     }
 }
 
-/// The three transmit mailboxes
-#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
+/// The three transmit mailboxes.
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 #[cfg_attr(feature = "unstable-defmt", derive(defmt::Format))]
 pub enum Mailbox {
     /// Transmit mailbox 0
@@ -873,4 +853,25 @@ pub enum Mailbox {
     Mailbox1 = 1,
     /// Transmit mailbox 2
     Mailbox2 = 2,
+}
+
+/// Contains information about a frame enqueued for transmission via [`Can::transmit`] or
+/// [`Tx::transmit`].
+pub struct TransmitStatus {
+    dequeued_frame: Option<Frame>,
+    mailbox: Mailbox,
+}
+
+impl TransmitStatus {
+    /// Returns the lower-priority frame that was dequeued to make space for the new frame.
+    #[inline]
+    pub fn dequeued_frame(&self) -> Option<&Frame> {
+        self.dequeued_frame.as_ref()
+    }
+
+    /// Returns the [`Mailbox`] the frame was enqueued in.
+    #[inline]
+    pub fn mailbox(&self) -> Mailbox {
+        self.mailbox
+    }
 }
