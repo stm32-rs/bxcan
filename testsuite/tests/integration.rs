@@ -4,7 +4,7 @@
 #[defmt_test::tests]
 mod tests {
     use bxcan::filter::{ListEntry32, Mask16, Mask32};
-    use bxcan::{ExtendedId, Frame, StandardId};
+    use bxcan::{ExtendedId, Frame, Mailbox, StandardId};
 
     use nb::block;
     use testsuite::State;
@@ -274,13 +274,21 @@ mod tests {
 
         // Enqueue several frames with increasing priorities.
         let frame4 = Frame::new_data(ExtendedId::new(4).unwrap(), []);
-        defmt::assert!(state.can1.transmit(&frame4).unwrap().is_none());
+        let tx_status = state.can1.transmit(&frame4).unwrap();
+        defmt::assert!(tx_status.dequeued_frame().is_none());
+        defmt::assert_eq!(tx_status.mailbox(), Mailbox::Mailbox0);
         let frame3 = Frame::new_data(ExtendedId::new(3).unwrap(), []);
-        defmt::assert!(state.can1.transmit(&frame3).unwrap().is_none());
+        let tx_status = state.can1.transmit(&frame3).unwrap();
+        defmt::assert!(tx_status.dequeued_frame().is_none());
+        defmt::assert_eq!(tx_status.mailbox(), Mailbox::Mailbox1);
         let frame2 = Frame::new_data(ExtendedId::new(2).unwrap(), []);
-        defmt::assert!(state.can1.transmit(&frame2).unwrap().is_none());
+        let tx_status = state.can1.transmit(&frame2).unwrap();
+        defmt::assert!(tx_status.dequeued_frame().is_none());
+        defmt::assert_eq!(tx_status.mailbox(), Mailbox::Mailbox2);
         let frame1 = Frame::new_data(ExtendedId::new(1).unwrap(), []);
-        defmt::assert!(state.can1.transmit(&frame1).unwrap().is_none());
+        let tx_status = state.can1.transmit(&frame1).unwrap();
+        defmt::assert!(tx_status.dequeued_frame().is_none());
+        defmt::assert_eq!(tx_status.mailbox(), Mailbox::Mailbox0);
         // NB: We need 4 frames, even though there are only 3 TX mailboxes, presumably because
         // `frame4` immediately enters some sort of transmit buffer, freeing its mailbox.
 
@@ -288,10 +296,9 @@ mod tests {
         // to finish transmission. Enqueuing a higher-priority frame should succeed and abort
         // transmission of a lower-priority frame.
         let frame0 = Frame::new_data(ExtendedId::new(0).unwrap(), []);
-        let old = defmt::unwrap!(state.can1.transmit(&frame0).unwrap());
-
+        let tx_status = state.can1.transmit(&frame0).unwrap();
         // The returned frame should be the one with the lowest priority.
-        defmt::assert_eq!(old, frame3);
+        defmt::assert_eq!(tx_status.dequeued_frame(), Some(&frame3));
 
         // All successfully transmitted frames should arrive in priority order, except `frame4`.
         defmt::assert_eq!(block!(state.can1.receive()).unwrap(), frame4);
@@ -306,6 +313,16 @@ mod tests {
         state.go_fast();
     }
 
+    #[test]
+    fn enable_non_blocking(state: &mut State) {
+        drop(state.can1.modify_config());
+        block!(state.can1.enable_non_blocking()).unwrap();
+        defmt::assert!(state.can1.is_transmitter_idle());
+
+        let frame = Frame::new_data(StandardId::new(0).unwrap(), []);
+        defmt::assert!(state.roundtrip_frame(&frame));
+    }
+
     /// Performs an external roundtrip from CAN1 to CAN2 and vice-versa.
     ///
     /// Requires that both are hooked up to the same CAN bus.
@@ -316,13 +333,15 @@ mod tests {
             .modify_config()
             .set_loopback(false)
             .set_silent(false)
-            .set_bit_timing(0x00050000);
+            .set_bit_timing(0x00050000)
+            .enable();
         state
             .can2
             .modify_config()
             .set_loopback(false)
             .set_silent(false)
-            .set_bit_timing(0x00050000);
+            .set_bit_timing(0x00050000)
+            .enable();
 
         state
             .can1
@@ -337,9 +356,6 @@ mod tests {
             .slave_filters()
             .clear()
             .enable_bank(1, Mask32::accept_all());
-
-        block!(state.can1.enable()).unwrap();
-        block!(state.can2.enable()).unwrap();
 
         let frame = Frame::new_data(ExtendedId::new(123).unwrap(), [9, 8, 7]);
         block!(state.can2.transmit(&frame)).unwrap();
