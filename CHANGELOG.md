@@ -2,7 +2,11 @@
 
 ## Unreleased
 
-No changes.
+### New Features
+
+* Add `CanConfig::set_automatic_retransmit` function to enable or disable automatic frame retransmission ([#42]).
+
+[#42]: https://github.com/stm32-rs/bxcan/pull/42
 
 ## [0.5.1 - 2021-05-15](https://github.com/stm32-rs/bxcan/releases/tag/v0.5.1)
 
