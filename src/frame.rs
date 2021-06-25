@@ -101,53 +101,6 @@ impl Frame {
     }
 }
 
-impl embedded_can::Frame for Frame {
-    fn new(id: impl Into<Id>, data: &[u8]) -> Result<Self, ()> {
-        let data = Data::new(data).ok_or(())?;
-        Ok(Frame::new_data(id, data))
-    }
-
-    fn new_remote(id: impl Into<Id>, dlc: usize) -> Result<Self, ()> {
-        if dlc <= 8 {
-            Ok(Frame::new_remote(id, dlc as u8))
-        } else {
-            Err(())
-        }
-    }
-
-    fn is_extended(&self) -> bool {
-        self.is_extended()
-    }
-
-    fn is_standard(&self) -> bool {
-        self.is_standard()
-    }
-
-    fn is_remote_frame(&self) -> bool {
-        self.is_remote_frame()
-    }
-
-    fn is_data_frame(&self) -> bool {
-        self.is_data_frame()
-    }
-
-    fn id(&self) -> Id {
-        self.id()
-    }
-
-    fn dlc(&self) -> usize {
-        self.dlc() as usize
-    }
-
-    fn data(&self) -> &[u8] {
-        if let Some(data) = self.data() {
-            data
-        } else {
-            &[]
-        }
-    }
-}
-
 impl PartialEq for Frame {
     fn eq(&self, other: &Self) -> bool {
         match (self.data(), other.data()) {

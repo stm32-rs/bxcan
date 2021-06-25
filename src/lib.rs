@@ -8,11 +8,11 @@
 //!
 //! - Supports both single- and dual-peripheral configurations (where one bxCAN instance manages the
 //!   filters of a secondary instance).
-//! - Handles standard and extended frames, data and remote frames.
+//! - Handles standard and extended frames, and data and remote frames.
 //! - Support for interrupts emitted by the bxCAN peripheral.
 //! - Transmission respects CAN IDs and protects against priority inversion (a lower-priority frame
-//!   may be rejected when enqueueing a higher-priority one).
-//! - Implements the [`embedded-can`] traits.
+//!   may be dequeued when enqueueing a higher-priority one).
+//! - Optionally implements the [`embedded-can`] traits for interoperability.
 //!
 //! # Limitations
 //!
@@ -24,6 +24,7 @@
 //! | Feature | Description |
 //! |---------|-------------|
 //! | `unstable-defmt` | Implements [`defmt`]'s `Format` trait for the types in this crate.[^1] |
+//! | `embedded-can-03` | Implements the [`embedded-can`] 0.3 traits. |
 //!
 //! [^1]: The specific version of defmt is unspecified and may be updated in a patch release.
 //!
@@ -35,13 +36,16 @@
 #![doc(test(attr(deny(unused_imports, unused_must_use))))]
 #![no_std]
 
+#[cfg(feature = "embedded-can-03")]
+mod embedded_can;
 pub mod filter;
 mod frame;
+mod id;
 mod interrupt;
 mod pac;
 mod readme;
 
-pub use embedded_can::{ExtendedId, Id, StandardId};
+pub use id::{ExtendedId, Id, StandardId};
 
 pub use crate::frame::{Data, Frame, FramePriority};
 pub use crate::interrupt::{Interrupt, Interrupts};
@@ -557,30 +561,6 @@ impl<I: FilterOwner> Can<I> {
     /// peripheral instead.
     pub fn modify_filters(&mut self) -> MasterFilters<'_, I> {
         unsafe { MasterFilters::new() }
-    }
-}
-
-impl<I> embedded_can::Can for Can<I>
-where
-    I: Instance,
-{
-    type Frame = Frame;
-
-    type Error = ();
-
-    fn try_transmit(
-        &mut self,
-        frame: &Self::Frame,
-    ) -> nb::Result<Option<Self::Frame>, Self::Error> {
-        match self.transmit(frame) {
-            Ok(status) => Ok(status.dequeued_frame().cloned()),
-            Err(nb::Error::WouldBlock) => Err(nb::Error::WouldBlock),
-            Err(nb::Error::Other(e)) => match e {},
-        }
-    }
-
-    fn try_receive(&mut self) -> nb::Result<Self::Frame, Self::Error> {
-        self.receive()
     }
 }
 
