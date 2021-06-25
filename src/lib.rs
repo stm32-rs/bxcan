@@ -282,11 +282,10 @@ impl<I: Instance> CanConfig<'_, I> {
     /// If this is enabled, the CAN peripheral will automatically try to retransmit each frame
     /// util it can be sent. Otherwise, it will only try once to send each frame.
     pub fn set_automatic_retransmit(&mut self, enabled: bool) -> &mut Self {
-        let can = self.registers();
+        let can = self.can.registers();
         can.mcr.modify(|_, w| w.nart().bit(!enabled));
         self
     }
-}
 
     /// Leaves initialization mode and enables the peripheral.
     ///
