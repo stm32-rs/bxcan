@@ -36,7 +36,6 @@ version = "0.2.0"
 [features]
 unstable-defmt = ["defmt"]
 embedded-can-03 = ["embedded-can"]
-default = []
 
 [profile.test]
 opt-level = "s"
