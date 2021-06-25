@@ -36,7 +36,9 @@ jobs:
         toolchain: ${{ matrix.rust }}
         override: true
     - name: Build
-      run: cargo build --all-targets
+      run: |
+        cargo build --all-targets
+        cargo build --all-targets --features unstable-defmt
     - name: Run tests
       run: cargo test
 

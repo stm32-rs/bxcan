@@ -181,6 +181,11 @@ mod tests {
 
             // Reception of the 4th message should have caused an overrun interrupt.
             defmt::assert!(interrupt_fired.load(Ordering::Relaxed));
+
+            // Drain the receive FIFO for subsequent tests.
+            defmt::unwrap!(block!(m.lock(|state| state.can1.receive())));
+            defmt::unwrap!(block!(m.lock(|state| state.can1.receive())));
+            defmt::unwrap!(block!(m.lock(|state| state.can1.receive())));
         });
 
         state.can1.disable_interrupt(Interrupt::Fifo0Overrun);
@@ -223,15 +228,15 @@ mod tests {
             .modify_config()
             .set_loopback(false)
             .set_silent(false)
-            .set_bit_timing(0x00050000);
+            .set_bit_timing(0x00050000)
+            .enable();
         state
             .can2
             .modify_config()
             .set_loopback(false)
             .set_silent(false)
-            .set_bit_timing(0x00050000);
-        block!(state.can1.enable()).unwrap();
-        block!(state.can2.enable()).unwrap();
+            .set_bit_timing(0x00050000)
+            .enable();
 
         let m = Mutex::new(&mut *state);
         let wakeup_interrupt_fired = AtomicBool::new(false);
@@ -256,6 +261,10 @@ mod tests {
                 while !state.can2.is_transmitter_idle() {}
             );
             defmt::assert!(wakeup_interrupt_fired.load(Ordering::Relaxed));
+
+            // Frame should still be received correctly.
+            let recvd = defmt::unwrap!(block!(m.lock(|state| state.can1.receive())));
+            defmt::assert_eq!(recvd, frame);
         });
 
         state.can1.disable_interrupt(Interrupt::Wakeup);

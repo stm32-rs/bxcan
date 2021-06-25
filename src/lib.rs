@@ -19,7 +19,16 @@
 //! - Currently, only RX FIFO 0 is supported, and FIFO 1 will not be used.
 //! - Support for querying error states and handling error interrupts is incomplete.
 //!
+//! # Cargo Features
+//!
+//! | Feature | Description |
+//! |---------|-------------|
+//! | `unstable-defmt` | Implements [`defmt`]'s `Format` trait for the types in this crate.[^1] |
+//!
+//! [^1]: The specific version of defmt is unspecified and may be updated in a patch release.
+//!
 //! [`embedded-can`]: https://docs.rs/embedded-can
+//! [`defmt`]: https://docs.rs/defmt
 
 #![doc(html_root_url = "https://docs.rs/bxcan/0.5.1")]
 // Deny a few warnings in doctests, since rustdoc `allow`s many warnings by default
@@ -42,8 +51,8 @@ use crate::filter::MasterFilters;
 use core::cmp::{Ord, Ordering};
 use core::convert::{Infallible, TryInto};
 use core::marker::PhantomData;
+use core::mem;
 use core::ptr::NonNull;
-use defmt::Format;
 
 use self::pac::generic::*; // To make the PAC extraction build
 
@@ -119,7 +128,8 @@ pub enum Error {
 /// Lower identifier values have a higher priority. Additionally standard frames
 /// have a higher priority than extended frames and data frames have a higher
 /// priority than remote frames.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Format)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "unstable-defmt", derive(defmt::Format))]
 struct IdReg(u32);
 
 impl IdReg {
@@ -224,16 +234,13 @@ impl PartialOrd for IdReg {
     }
 }
 
-/// Configuration proxy to be used with `Can::configure()`.
+/// Configuration proxy returned by [`Can::modify_config`].
+#[must_use = "`CanConfig` leaves the peripheral in uninitialized state, call `CanConfig::enable` or explicitly drop the value"]
 pub struct CanConfig<'a, I: Instance> {
-    _can: PhantomData<&'a mut I>,
+    can: &'a mut Can<I>,
 }
 
 impl<I: Instance> CanConfig<'_, I> {
-    fn registers(&self) -> &RegisterBlock {
-        unsafe { &*I::REGISTERS }
-    }
-
     /// Configures the bit timings.
     ///
     /// You can use <http://www.bittiming.can-wiki.info/> to calculate the `btr` parameter. Enter
@@ -246,8 +253,8 @@ impl<I: Instance> CanConfig<'_, I> {
     ///
     /// Then copy the `CAN_BUS_TIME` register value from the table and pass it as the `btr`
     /// parameter to this method.
-    pub fn set_bit_timing(&mut self, btr: u32) -> &mut Self {
-        let can = self.registers();
+    pub fn set_bit_timing(self, btr: u32) -> Self {
+        let can = self.can.registers();
         can.btr.modify(|r, w| unsafe {
             let mode_bits = r.bits() & 0xC000_0000;
             w.bits(mode_bits | btr)
@@ -257,15 +264,15 @@ impl<I: Instance> CanConfig<'_, I> {
 
     /// Enables or disables loopback mode: Internally connects the TX and RX
     /// signals together.
-    pub fn set_loopback(&mut self, enabled: bool) -> &mut Self {
-        let can = self.registers();
+    pub fn set_loopback(self, enabled: bool) -> Self {
+        let can = self.can.registers();
         can.btr.modify(|_, w| w.lbkm().bit(enabled));
         self
     }
 
     /// Enables or disables silent mode: Disconnects the TX signal from the pin.
-    pub fn set_silent(&mut self, enabled: bool) -> &mut Self {
-        let can = self.registers();
+    pub fn set_silent(self, enabled: bool) -> Self {
+        let can = self.can.registers();
         can.btr.modify(|_, w| w.silm().bit(enabled));
         self
     }
@@ -281,11 +288,28 @@ impl<I: Instance> CanConfig<'_, I> {
     }
 }
 
-impl<I: Instance> Drop for CanConfig<'_, I> {
-    #[inline]
-    fn drop(&mut self) {
-        // Leave initialization mode
-        let can = self.registers();
+    /// Leaves initialization mode and enables the peripheral.
+    ///
+    /// To sync with the CAN bus, this will block until 11 consecutive recessive bits are detected
+    /// on the bus.
+    ///
+    /// If you want to finish configuration without enabling the peripheral, you can [`drop`] the
+    /// [`CanConfig`] instead.
+    pub fn enable(mut self) {
+        self.leave_init_mode();
+
+        match nb::block!(self.can.enable_non_blocking()) {
+            Ok(()) => {}
+            Err(void) => match void {},
+        }
+
+        // Don't run the destructor.
+        mem::forget(self);
+    }
+
+    /// Leaves initialization mode, enters sleep mode.
+    fn leave_init_mode(&mut self) {
+        let can = self.can.registers();
         can.mcr
             .modify(|_, w| w.sleep().set_bit().inrq().clear_bit());
         loop {
@@ -297,7 +321,14 @@ impl<I: Instance> Drop for CanConfig<'_, I> {
     }
 }
 
-/// Interface to a CAN peripheral.
+impl<I: Instance> Drop for CanConfig<'_, I> {
+    #[inline]
+    fn drop(&mut self) {
+        self.leave_init_mode();
+    }
+}
+
+/// Interface to a bxCAN peripheral.
 pub struct Can<I: Instance> {
     instance: I,
 }
@@ -333,32 +364,7 @@ where
 
     /// Configure bit timings and silent/loop-back mode.
     ///
-    /// Acutal configuration happens on the `CanConfig` that is passed to the
-    /// closure. It must be done this way because those configuration bits can
-    /// only be set if the CAN controller is in a special init mode.
-    /// Puts the peripheral in sleep mode afterwards. `Can::enable()` must be
-    /// called to exit sleep mode and start reception and transmission.
-    pub fn configure<F>(&mut self, f: F)
-    where
-        F: FnOnce(&mut CanConfig<I>),
-    {
-        let can = self.registers();
-
-        // Enter init mode.
-        can.mcr
-            .modify(|_, w| w.sleep().clear_bit().inrq().set_bit());
-        loop {
-            let msr = can.msr.read();
-            if msr.slak().bit_is_clear() && msr.inak().bit_is_set() {
-                break;
-            }
-        }
-
-        let mut config = CanConfig { _can: PhantomData };
-        f(&mut config);
-    }
-
-    /// Configure bit timings and silent/loop-back mode.
+    /// Calling this method will enter initialization mode.
     pub fn modify_config(&mut self) -> CanConfig<'_, I> {
         let can = self.registers();
 
@@ -372,19 +378,29 @@ where
             }
         }
 
-        CanConfig { _can: PhantomData }
+        CanConfig { can: self }
     }
 
     /// Configures the automatic wake-up feature.
+    ///
+    /// This is turned off by default.
+    ///
+    /// When turned on, an incoming frame will cause the peripheral to wake up from sleep and
+    /// receive the frame. If enabled, [`Interrupt::Wakeup`] will also be triggered by the incoming
+    /// frame.
     pub fn set_automatic_wakeup(&mut self, enabled: bool) {
         let can = self.registers();
         can.mcr.modify(|_, w| w.awum().bit(enabled));
     }
 
-    /// Start reception and transmission.
+    /// Leaves initialization mode and enables the peripheral (non-blocking version).
     ///
-    /// Waits for 11 consecutive recessive bits to sync to the CAN bus.
-    pub fn enable(&mut self) -> nb::Result<(), Infallible> {
+    /// Usually, it is recommended to call [`CanConfig::enable`] instead. This method is only needed
+    /// if you want non-blocking initialization.
+    ///
+    /// If this returns [`WouldBlock`][nb::Error::WouldBlock], the peripheral will enable itself
+    /// in the background.
+    pub fn enable_non_blocking(&mut self) -> nb::Result<(), Infallible> {
         let can = self.registers();
         let msr = can.msr.read();
         if msr.slak().bit_is_set() {
@@ -501,23 +517,9 @@ where
     /// Transmit order is preserved for frames with identical identifiers.
     /// If all transmit mailboxes are full, a higher priority frame replaces the
     /// lowest priority frame, which is returned as `Ok(Some(frame))`.
-    pub fn transmit(&mut self, frame: &Frame) -> nb::Result<Option<Frame>, Infallible> {
+    pub fn transmit(&mut self, frame: &Frame) -> nb::Result<TransmitStatus, Infallible> {
         // Safety: We have a `&mut self` and have unique access to the peripheral.
         unsafe { Tx::<I>::conjure().transmit(frame) }
-    }
-
-    /// Puts a CAN frame in a free transmit mailbox for transmission on the bus.
-    ///
-    /// This function is equivalent to [`transmit`](#method.transmit) except that it returns the
-    /// mailbox that was accessed. This can be used to keep track of additional information
-    /// about each frame, even when frames are placed into transmit mailboxes and later
-    /// removed before being transmitted.
-    pub fn transmit_and_get_mailbox(
-        &mut self,
-        frame: &Frame,
-    ) -> nb::Result<(Option<Frame>, Mailbox), Infallible> {
-        // Safety: We have a `&mut self` and have unique access to the peripheral.
-        unsafe { Tx::<I>::conjure().transmit_and_get_mailbox(frame) }
     }
 
     /// Returns `true` if no frame is pending for transmission.
@@ -581,7 +583,11 @@ where
         &mut self,
         frame: &Self::Frame,
     ) -> nb::Result<Option<Self::Frame>, Self::Error> {
-        self.transmit(frame).map_err(|e| e.map(|_| ()))
+        match self.transmit(frame) {
+            Ok(status) => Ok(status.dequeued_frame().cloned()),
+            Err(nb::Error::WouldBlock) => Err(nb::Error::WouldBlock),
+            Err(nb::Error::Other(e)) => match e {},
+        }
     }
 
     fn try_receive(&mut self) -> nb::Result<Self::Frame, Self::Error> {
@@ -614,7 +620,7 @@ where
 
     /// Creates a `&mut Self` out of thin air.
     ///
-    /// This is only safe if it is the only way to access an `Rx<I>`.
+    /// This is only safe if it is the only way to access a `Tx<I>`.
     unsafe fn conjure_by_ref<'a>() -> &'a mut Self {
         // Cause out of bounds access when `Self` is not zero-sized.
         [()][core::mem::size_of::<Self>()];
@@ -627,26 +633,13 @@ where
         unsafe { &*I::REGISTERS }
     }
 
-    /// Puts a CAN frame in a free transmit mailbox for transmission on the bus.
+    /// Puts a CAN frame in a transmit mailbox for transmission on the bus.
     ///
     /// Frames are transmitted to the bus based on their priority (identifier).
     /// Transmit order is preserved for frames with identical identifiers.
     /// If all transmit mailboxes are full, a higher priority frame replaces the
     /// lowest priority frame, which is returned as `Ok(Some(frame))`.
-    pub fn transmit(&mut self, frame: &Frame) -> nb::Result<Option<Frame>, Infallible> {
-        self.transmit_and_get_mailbox(frame)
-            .map(|(frame, _mailbox)| frame)
-    }
-
-    /// Puts a CAN frame in a free transmit mailbox for transmission on the bus.
-    ///
-    /// This function is equivalent to [`Tx::transmit`] except that it returns the mailbox that was
-    /// accessed. This can be used to keep track of additional information about each frame, even
-    /// when frames are placed into transmit mailboxes and later removed before being transmitted.
-    pub fn transmit_and_get_mailbox(
-        &mut self,
-        frame: &Frame,
-    ) -> nb::Result<(Option<Frame>, Mailbox), Infallible> {
+    pub fn transmit(&mut self, frame: &Frame) -> nb::Result<TransmitStatus, Infallible> {
         let can = self.registers();
 
         // Get the index of the next free mailbox or the one with the lowest priority.
@@ -690,7 +683,10 @@ where
             2 => Mailbox::Mailbox2,
             _ => unreachable!(),
         };
-        Ok((pending_frame, mailbox))
+        Ok(TransmitStatus {
+            dequeued_frame: pending_frame,
+            mailbox,
+        })
     }
 
     /// Returns `Ok` when the mailbox is free or if it contains pending frame with a
@@ -755,7 +751,7 @@ where
             // Abort request failed because the frame was already sent (or being sent) on
             // the bus. All mailboxes are now free. This can happen for small prescaler
             // values (e.g. 1MBit/s bit timing with a source clock of 8MHz) or when an ISR
-            // has preemted the execution.
+            // has preempted the execution.
             None
         }
     }
@@ -885,8 +881,9 @@ where
     }
 }
 
-/// The three transmit mailboxes
-#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Format)]
+/// The three transmit mailboxes.
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+#[cfg_attr(feature = "unstable-defmt", derive(defmt::Format))]
 pub enum Mailbox {
     /// Transmit mailbox 0
     Mailbox0 = 0,
@@ -894,4 +891,25 @@ pub enum Mailbox {
     Mailbox1 = 1,
     /// Transmit mailbox 2
     Mailbox2 = 2,
+}
+
+/// Contains information about a frame enqueued for transmission via [`Can::transmit`] or
+/// [`Tx::transmit`].
+pub struct TransmitStatus {
+    dequeued_frame: Option<Frame>,
+    mailbox: Mailbox,
+}
+
+impl TransmitStatus {
+    /// Returns the lower-priority frame that was dequeued to make space for the new frame.
+    #[inline]
+    pub fn dequeued_frame(&self) -> Option<&Frame> {
+        self.dequeued_frame.as_ref()
+    }
+
+    /// Returns the [`Mailbox`] the frame was enqueued in.
+    #[inline]
+    pub fn mailbox(&self) -> Mailbox {
+        self.mailbox
+    }
 }

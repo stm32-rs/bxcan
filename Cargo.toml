@@ -22,10 +22,16 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 bitflags = "1.2.1"
-defmt = "0.2.0"
 vcell = "0.1.2"
 nb = "1.0.0"
 embedded-can = "0.3"
+
+[dependencies.defmt]
+optional = true
+version = "0.2.0"
+
+[features]
+unstable-defmt = ["defmt"]
 
 [profile.test]
 opt-level = "s"
