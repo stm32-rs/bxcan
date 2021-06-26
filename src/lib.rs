@@ -404,7 +404,8 @@ where
     /// if you want non-blocking initialization.
     ///
     /// If this returns [`WouldBlock`][nb::Error::WouldBlock], the peripheral will enable itself
-    /// in the background.
+    /// in the background. The peripheral is enabled and ready to use when this method returns
+    /// successfully.
     pub fn enable_non_blocking(&mut self) -> nb::Result<(), Infallible> {
         let can = self.registers();
         let msr = can.msr.read();
@@ -529,16 +530,17 @@ where
 
     /// Returns `true` if no frame is pending for transmission.
     pub fn is_transmitter_idle(&self) -> bool {
-        // Safety: We have a `&mut self` and have unique access to the peripheral.
+        // Safety: Read-only operation.
         unsafe { Tx::<I>::conjure().is_idle() }
     }
 
     /// Attempts to abort the sending of a frame that is pending in a mailbox.
     ///
-    /// If there is no frame in the provided mailbox, this function has no effect and returns false.
+    /// If there is no frame in the provided mailbox, or its transmission succeeds before it can be
+    /// aborted, this function has no effect and returns `false`.
     ///
-    /// If there is a frame in the provided mailbox, this function returns true if the transmission
-    /// was aborted. This function returns false if the frame was successfully transmitted.
+    /// If there is a frame in the provided mailbox, and it is canceled successfully, this function
+    /// returns `true`.
     pub fn abort(&mut self, mailbox: Mailbox) -> bool {
         // Safety: We have a `&mut self` and have unique access to the peripheral.
         unsafe { Tx::<I>::conjure().abort(mailbox) }
@@ -616,10 +618,11 @@ where
 
     /// Puts a CAN frame in a transmit mailbox for transmission on the bus.
     ///
-    /// Frames are transmitted to the bus based on their priority (identifier).
-    /// Transmit order is preserved for frames with identical identifiers.
-    /// If all transmit mailboxes are full, a higher priority frame replaces the
-    /// lowest priority frame, which is returned as `Ok(Some(frame))`.
+    /// Frames are transmitted to the bus based on their priority (identifier). Transmit order is
+    /// preserved for frames with identical identifiers.
+    ///
+    /// If all transmit mailboxes are full, a higher priority frame can replace a lower-priority
+    /// frame, which is returned in the [`TransmitStatus`].
     pub fn transmit(&mut self, frame: &Frame) -> nb::Result<TransmitStatus, Infallible> {
         let can = self.registers();
 
@@ -754,10 +757,11 @@ where
 
     /// Attempts to abort the sending of a frame that is pending in a mailbox.
     ///
-    /// If there is no frame in the provided mailbox, this function has no effect and returns false.
+    /// If there is no frame in the provided mailbox, or its transmission succeeds before it can be
+    /// aborted, this function has no effect and returns `false`.
     ///
-    /// If there is a frame in the provided mailbox, this function returns true if the transmission
-    /// was aborted. This function returns false if the frame was successfully transmitted.
+    /// If there is a frame in the provided mailbox, and it is canceled successfully, this function
+    /// returns `true`.
     pub fn abort(&mut self, mailbox: Mailbox) -> bool {
         // If the mailbox is empty, the value of TXOKx depends on what happened with the previous
         // frame in that mailbox. Only call abort_by_index() if the mailbox is not empty.
