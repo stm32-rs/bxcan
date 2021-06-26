@@ -24,7 +24,11 @@ maintenance = { status = "actively-developed" }
 bitflags = "1.2.1"
 vcell = "0.1.2"
 nb = "1.0.0"
-embedded-can = "0.3"
+
+[dependencies.embedded-can-03]
+version = "0.3"
+optional = true
+package = "embedded-can"
 
 [dependencies.defmt]
 optional = true
