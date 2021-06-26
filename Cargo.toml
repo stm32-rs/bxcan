@@ -25,9 +25,10 @@ bitflags = "1.2.1"
 vcell = "0.1.2"
 nb = "1.0.0"
 
-[dependencies.embedded-can]
+[dependencies.embedded-can-03]
 version = "0.3"
 optional = true
+package = "embedded-can"
 
 [dependencies.defmt]
 optional = true
@@ -35,7 +36,6 @@ version = "0.2.0"
 
 [features]
 unstable-defmt = ["defmt"]
-embedded-can-03 = ["embedded-can"]
 
 [profile.test]
 opt-level = "s"

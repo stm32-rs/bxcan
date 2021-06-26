@@ -1,6 +1,7 @@
 //! `embedded_can` trait impls.
 
 use crate::{Can, Data, ExtendedId, Frame, Id, Instance, StandardId};
+use embedded_can_03 as embedded_can;
 
 impl<I> embedded_can::Can for Can<I>
 where
