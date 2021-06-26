@@ -474,14 +474,16 @@ where
     }
 
     /// Clears the pending flag of [`Interrupt::Sleep`].
-    pub fn clear_sleep_interrupt(&mut self) {
+    pub fn clear_sleep_interrupt(&self) {
         let can = self.registers();
+        // Read-only register with write-1-to-clear, so `&self` is sufficient.
         can.msr.write(|w| w.slaki().set_bit());
     }
 
     /// Clears the pending flag of [`Interrupt::Wakeup`].
-    pub fn clear_wakeup_interrupt(&mut self) {
+    pub fn clear_wakeup_interrupt(&self) {
         let can = self.registers();
+        // Read-only register with write-1-to-clear, so `&self` is sufficient.
         can.msr.write(|w| w.wkui().set_bit());
     }
 
