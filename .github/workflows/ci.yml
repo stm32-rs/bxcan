@@ -58,7 +58,7 @@ jobs:
       run: cargo build --target thumbv6m-none-eabi
     - name: Build testsuite for thumbv7m
       working-directory: testsuite
-      run: cargo build --verbose --no-default-features --target thumbv7m-none-eabi --all-targets
+      run: cargo test --no-run --verbose --no-default-features --target thumbv7m-none-eabi
 
   lint:
     runs-on: ubuntu-latest
