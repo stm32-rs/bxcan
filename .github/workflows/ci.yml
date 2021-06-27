@@ -54,7 +54,7 @@ jobs:
         target: ${{ env.NO_STD_TARGET }}
     - name: Build
       working-directory: testsuite
-      run: cargo build --verbose --no-default-features --target ${{ env.NO_STD_TARGET }}
+      run: cargo build --verbose --no-default-features --target ${{ env.NO_STD_TARGET }} --all-targets
 
   lint:
     runs-on: ubuntu-latest
