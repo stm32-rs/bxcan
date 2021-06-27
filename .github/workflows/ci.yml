@@ -52,6 +52,8 @@ jobs:
         toolchain: stable
         override: true
         target: ${{ env.NO_STD_TARGET }}
+    - name: Install flip-link
+      run: cargo install flip-link
     - name: Build
       working-directory: testsuite
       run: cargo build --verbose --no-default-features --target ${{ env.NO_STD_TARGET }} --all-targets
