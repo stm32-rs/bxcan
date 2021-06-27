@@ -24,6 +24,11 @@ impl StandardId {
     }
 
     /// Creates a new `StandardId` without checking if it is inside the valid range.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that `raw` is in the valid range, otherwise the behavior is
+    /// undefined.
     #[inline]
     pub const unsafe fn new_unchecked(raw: u16) -> Self {
         Self(raw)
@@ -60,6 +65,11 @@ impl ExtendedId {
     }
 
     /// Creates a new `ExtendedId` without checking if it is inside the valid range.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that `raw` is in the valid range, otherwise the behavior is
+    /// undefined.
     #[inline]
     pub const unsafe fn new_unchecked(raw: u32) -> Self {
         Self(raw)

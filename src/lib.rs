@@ -35,6 +35,7 @@
 // Deny a few warnings in doctests, since rustdoc `allow`s many warnings by default
 #![doc(test(attr(deny(unused_imports, unused_must_use))))]
 #![no_std]
+#![allow(clippy::unnecessary_operation)] // lint is bugged
 
 #[cfg(feature = "embedded-can-03")]
 mod embedded_can;
@@ -42,8 +43,10 @@ pub mod filter;
 mod frame;
 mod id;
 mod interrupt;
-mod pac;
 mod readme;
+
+#[allow(clippy::all)] // generated code
+mod pac;
 
 pub use id::{ExtendedId, Id, StandardId};
 
