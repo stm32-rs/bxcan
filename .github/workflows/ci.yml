@@ -12,7 +12,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  NO_STD_TARGET: thumbv6m-none-eabi
 
 jobs:
   test:
@@ -51,12 +50,15 @@ jobs:
         profile: minimal
         toolchain: stable
         override: true
-        target: ${{ env.NO_STD_TARGET }}
+    - name: Install embedded targets
+      run: rustup target add thumbv6m-none-eabi thumbv7m-none-eabi
     - name: Install flip-link
       run: cargo install flip-link
-    - name: Build
+    - name: Build bxcan for thumbv6m
+      run: cargo build --target thumbv6m-none-eabi
+    - name: Build testsuite for thumbv7m
       working-directory: testsuite
-      run: cargo build --verbose --no-default-features --target ${{ env.NO_STD_TARGET }} --all-targets
+      run: cargo build --verbose --no-default-features --target thumbv7m-none-eabi --all-targets
 
   lint:
     runs-on: ubuntu-latest
