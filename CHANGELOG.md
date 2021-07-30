@@ -5,7 +5,26 @@
 ### New Features
 
 * Add `CanConfig::set_automatic_retransmit` function to enable or disable automatic frame retransmission ([#42]).
+* Remove `transmit_and_get_mailbox` in favor of an improved `transmit` method ([#40]).
+  * `Can::transmit` now returns a `TransmitStatus` struct, which contains the dequeued frame and
+    the mailbox the new frame was placed into.
+* Make `CanConfig` harder to misuse ([#37]):
+  * Methods now take `self` by value.
+  * The `CanConfig` struct is now `#[must_use]`.
+  * `CanConfig` leaves init mode on drop, and enables the peripheral when `.enable()` is called.
+  * These changes make it very hard to forget to enable the peripheral after configuring, which was
+    a common mistake in previous versions.
 
+### Other Changes
+
+* Make `Can::clear_sleep_interrupt` and `Can::clear_wakeup_interrupt` take `&self` instead of `&mut self`.
+* Gate `embedded_can` impls behind the `embedded-can-03` Cargo feature.
+* Gate defmt support behind the `defmt` Cargo feature.
+* Removed `Can::configure` in favor of `Can::modify_config` ([#36]).
+
+[#36]: https://github.com/stm32-rs/bxcan/pull/36
+[#37]: https://github.com/stm32-rs/bxcan/pull/37
+[#40]: https://github.com/stm32-rs/bxcan/pull/40
 [#42]: https://github.com/stm32-rs/bxcan/pull/42
 
 ## [0.5.1 - 2021-05-15](https://github.com/stm32-rs/bxcan/releases/tag/v0.5.1)
