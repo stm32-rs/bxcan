@@ -32,7 +32,7 @@ package = "embedded-can"
 
 [dependencies.defmt]
 optional = true
-version = "0.2.0"
+version = "0.2.3"
 
 [features]
 unstable-defmt = ["defmt"]
