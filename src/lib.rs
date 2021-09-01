@@ -284,10 +284,10 @@ impl<I: Instance> CanConfig<'_, I> {
         self
     }
 
-    /// Enables or disables automatic retransmission of messages
+    /// Enables or disables automatic retransmission of messages.
     ///
     /// If this is enabled, the CAN peripheral will automatically try to retransmit each frame
-    /// util it can be sent. Otherwise, it will try only once to send each frame.
+    /// until it can be sent. Otherwise, it will try only once to send each frame.
     ///
     /// Automatic retransmission is enabled by default.
     pub fn set_automatic_retransmit(self, enabled: bool) -> Self {
