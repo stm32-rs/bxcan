@@ -91,12 +91,23 @@ pub struct State {
     pub can2: Can<CAN2>,
 }
 
+const BTR_FAST: u32 = 0x00050000;
+const BTR_SLOW: u32 = 0x007f_03ff;
+
 impl State {
     pub fn init() -> Self {
         let periph = defmt::unwrap!(pac::Peripherals::take());
         let (can1, can2) = init(periph);
-        let mut can1 = Can::new(can1);
-        let can2 = Can::new(can2);
+        let mut can1 = Can::builder(can1)
+            .set_loopback(true)
+            .set_silent(true)
+            .set_bit_timing(BTR_FAST)
+            .enable();
+        let can2 = Can::builder(can2)
+            .set_loopback(true)
+            .set_silent(true)
+            .set_bit_timing(BTR_FAST)
+            .enable();
         can1.modify_filters().clear();
 
         let mut state = Self { can1, can2 };
@@ -112,13 +123,13 @@ impl State {
             .modify_config()
             .set_loopback(true)
             .set_silent(true)
-            .set_bit_timing(0x007f_03ff)
+            .set_bit_timing(BTR_SLOW)
             .enable();
         self.can2
             .modify_config()
             .set_loopback(true)
             .set_silent(true)
-            .set_bit_timing(0x007f_03ff)
+            .set_bit_timing(BTR_SLOW)
             .enable();
     }
 
@@ -128,13 +139,13 @@ impl State {
             .modify_config()
             .set_loopback(true)
             .set_silent(true)
-            .set_bit_timing(0x00050000)
+            .set_bit_timing(BTR_FAST)
             .enable();
         self.can2
             .modify_config()
             .set_loopback(true)
             .set_silent(true)
-            .set_bit_timing(0x00050000)
+            .set_bit_timing(BTR_FAST)
             .enable();
     }
 

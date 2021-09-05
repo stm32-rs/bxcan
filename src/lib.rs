@@ -301,8 +301,8 @@ impl<I: Instance> CanConfig<'_, I> {
     /// To sync with the CAN bus, this will block until 11 consecutive recessive bits are detected
     /// on the bus.
     ///
-    /// If you want to finish configuration without enabling the peripheral, you can [`drop`] the
-    /// [`CanConfig`] instead.
+    /// If you want to finish configuration without enabling the peripheral, you can call
+    /// [`CanConfig::leave_disabled`] or [`drop`] the [`CanConfig`] instead.
     pub fn enable(mut self) {
         self.leave_init_mode();
 
@@ -313,6 +313,14 @@ impl<I: Instance> CanConfig<'_, I> {
 
         // Don't run the destructor.
         mem::forget(self);
+    }
+
+    /// Leaves initialization mode, but keeps the peripheral in sleep mode.
+    ///
+    /// Before the [`Can`] instance can be used, you have to enable it by calling
+    /// [`Can::enable_non_blocking`].
+    pub fn leave_disabled(mut self) {
+        self.leave_init_mode();
     }
 
     /// Leaves initialization mode, enters sleep mode.
@@ -336,6 +344,103 @@ impl<I: Instance> Drop for CanConfig<'_, I> {
     }
 }
 
+/// Builder returned by [`Can::builder`].
+#[must_use = "`CanBuilder` leaves the peripheral in uninitialized state, call `CanBuilder::enable` or `CanBuilder::leave_disabled`"]
+pub struct CanBuilder<I: Instance> {
+    can: Can<I>,
+}
+
+impl<I: Instance> CanBuilder<I> {
+    /// Configures the bit timings.
+    ///
+    /// You can use <http://www.bittiming.can-wiki.info/> to calculate the `btr` parameter. Enter
+    /// parameters as follows:
+    ///
+    /// - *Clock Rate*: The input clock speed to the CAN peripheral (*not* the CPU clock speed).
+    ///   This is the clock rate of the peripheral bus the CAN peripheral is attached to (eg. APB1).
+    /// - *Sample Point*: Should normally be left at the default value of 87.5%.
+    /// - *SJW*: Should normally be left at the default value of 1.
+    ///
+    /// Then copy the `CAN_BUS_TIME` register value from the table and pass it as the `btr`
+    /// parameter to this method.
+    pub fn set_bit_timing(self, btr: u32) -> Self {
+        let can = self.can.registers();
+        can.btr.modify(|r, w| unsafe {
+            let mode_bits = r.bits() & 0xC000_0000;
+            w.bits(mode_bits | btr)
+        });
+        self
+    }
+
+    /// Enables or disables loopback mode: Internally connects the TX and RX
+    /// signals together.
+    pub fn set_loopback(self, enabled: bool) -> Self {
+        let can = self.can.registers();
+        can.btr.modify(|_, w| w.lbkm().bit(enabled));
+        self
+    }
+
+    /// Enables or disables silent mode: Disconnects the TX signal from the pin.
+    pub fn set_silent(self, enabled: bool) -> Self {
+        let can = self.can.registers();
+        can.btr.modify(|_, w| w.silm().bit(enabled));
+        self
+    }
+
+    /// Enables or disables automatic retransmission of messages.
+    ///
+    /// If this is enabled, the CAN peripheral will automatically try to retransmit each frame
+    /// until it can be sent. Otherwise, it will try only once to send each frame.
+    ///
+    /// Automatic retransmission is enabled by default.
+    pub fn set_automatic_retransmit(self, enabled: bool) -> Self {
+        let can = self.can.registers();
+        can.mcr.modify(|_, w| w.nart().bit(!enabled));
+        self
+    }
+
+    /// Leaves initialization mode and enables the peripheral.
+    ///
+    /// To sync with the CAN bus, this will block until 11 consecutive recessive bits are detected
+    /// on the bus.
+    ///
+    /// If you want to finish configuration without enabling the peripheral, you can call
+    /// [`CanBuilder::leave_disabled`] instead.
+    pub fn enable(mut self) -> Can<I> {
+        self.leave_init_mode();
+
+        match nb::block!(self.can.enable_non_blocking()) {
+            Ok(()) => self.can,
+            Err(void) => match void {},
+        }
+    }
+
+    /// Returns the [`Can`] interface without enabling it.
+    ///
+    /// This leaves initialization mode, but keeps the peripheral in sleep mode instead of enabling
+    /// it.
+    ///
+    /// Before the [`Can`] instance can be used, you have to enable it by calling
+    /// [`Can::enable_non_blocking`].
+    pub fn leave_disabled(mut self) -> Can<I> {
+        self.leave_init_mode();
+        self.can
+    }
+
+    /// Leaves initialization mode, enters sleep mode.
+    fn leave_init_mode(&mut self) {
+        let can = self.can.registers();
+        can.mcr
+            .modify(|_, w| w.sleep().set_bit().inrq().clear_bit());
+        loop {
+            let msr = can.msr.read();
+            if msr.slak().bit_is_set() && msr.inak().bit_is_clear() {
+                break;
+            }
+        }
+    }
+}
+
 /// Interface to a bxCAN peripheral.
 pub struct Can<I: Instance> {
     instance: I,
@@ -345,9 +450,11 @@ impl<I> Can<I>
 where
     I: Instance,
 {
-    /// Creates a CAN interface, taking ownership of the raw peripheral instance.
-    pub fn new(instance: I) -> Self {
-        Can { instance }
+    /// Creates a [`CanBuilder`] for constructing a CAN interface.
+    pub fn builder(instance: I) -> CanBuilder<I> {
+        CanBuilder {
+            can: Can { instance },
+        }
     }
 
     fn registers(&self) -> &RegisterBlock {
