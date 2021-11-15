@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+No changes.
+
+## [0.6.2 - 2021-11-15](https://github.com/stm32-rs/bxcan/releases/tag/v0.6.2)
+
 ### Fixes
 
 * Enter initialization mode when constructing a `CanBuilder` ([#49]).

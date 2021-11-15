@@ -1,6 +1,6 @@
 [package]
 name = "bxcan"
-version = "0.6.1"
+version = "0.6.2"
 authors = [
     "Jonas Schievink <jonasschievink@gmail.com>",
     "Timo Kröger <timokroeger93@gmail.com>",
