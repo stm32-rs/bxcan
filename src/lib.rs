@@ -452,9 +452,23 @@ where
 {
     /// Creates a [`CanBuilder`] for constructing a CAN interface.
     pub fn builder(instance: I) -> CanBuilder<I> {
-        CanBuilder {
+        let can_builder = CanBuilder {
             can: Can { instance },
+        };
+
+        let can_reg = can_builder.can.registers();
+        // Enter init mode.
+        can_reg
+            .mcr
+            .modify(|_, w| w.sleep().clear_bit().inrq().set_bit());
+        loop {
+            let msr = can_reg.msr.read();
+            if msr.slak().bit_is_clear() && msr.inak().bit_is_set() {
+                break;
+            }
         }
+
+        can_builder
     }
 
     fn registers(&self) -> &RegisterBlock {
