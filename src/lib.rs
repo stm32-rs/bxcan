@@ -31,7 +31,7 @@
 //! [`embedded-can`]: https://docs.rs/embedded-can
 //! [`defmt`]: https://docs.rs/defmt
 
-#![doc(html_root_url = "https://docs.rs/bxcan/0.6.0")]
+#![doc(html_root_url = "https://docs.rs/bxcan/0.6.1")]
 // Deny a few warnings in doctests, since rustdoc `allow`s many warnings by default
 #![doc(test(attr(deny(unused_imports, unused_must_use))))]
 #![no_std]
