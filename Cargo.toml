@@ -12,7 +12,7 @@ repository = "https://github.com/stm32-rs/bxcan.git"
 keywords = ["can", "hal", "bus"]
 categories = ["no-std", "embedded"]
 readme = "README.md"
-license = "0BSD"
+license = "MIT OR Apache-2.0"
 
 [workspace]
 members = ["testsuite"]
