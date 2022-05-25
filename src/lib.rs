@@ -39,6 +39,7 @@
 
 #[cfg(feature = "embedded-can-03")]
 mod embedded_can;
+mod embedded_hal;
 pub mod filter;
 mod frame;
 mod id;
