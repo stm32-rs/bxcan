@@ -125,6 +125,13 @@ pub enum Error {
     Software,
 }*/
 
+/// Error that indicates that an incoming message has been lost due to buffer overrun.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "unstable-defmt", derive(defmt::Format))]
+pub struct OverrunError {
+    _priv: (),
+}
+
 /// Identifier of a CAN message.
 ///
 /// Can be either a standard identifier (11bit, Range: 0..0x3FF) or a
@@ -675,7 +682,7 @@ where
     /// Returns a received frame if available.
     ///
     /// Returns `Err` when a frame was lost due to buffer overrun.
-    pub fn receive(&mut self) -> nb::Result<Frame, ()> {
+    pub fn receive(&mut self) -> nb::Result<Frame, OverrunError> {
         // Safety: We have a `&mut self` and have unique access to the peripheral.
         unsafe { Rx::<I>::conjure().receive() }
     }
@@ -946,7 +953,7 @@ where
     /// Returns a received frame if available.
     ///
     /// Returns `Err` when a frame was lost due to buffer overrun.
-    pub fn receive(&mut self) -> nb::Result<Frame, ()> {
+    pub fn receive(&mut self) -> nb::Result<Frame, OverrunError> {
         match self.receive_fifo(0) {
             Err(nb::Error::WouldBlock) => self.receive_fifo(1),
             result => result,
@@ -957,7 +964,7 @@ where
         unsafe { &*I::REGISTERS }
     }
 
-    fn receive_fifo(&mut self, fifo_nr: usize) -> nb::Result<Frame, ()> {
+    fn receive_fifo(&mut self, fifo_nr: usize) -> nb::Result<Frame, OverrunError> {
         let can = self.registers();
 
         assert!(fifo_nr < 2);
@@ -973,7 +980,7 @@ where
         // Check for RX FIFO overrun.
         if rfr_read.fovr().bit_is_set() {
             rfr.write(|w| w.fovr().set_bit());
-            return Err(nb::Error::Other(()));
+            return Err(nb::Error::Other(OverrunError { _priv: () }));
         }
 
         // Read the frame.

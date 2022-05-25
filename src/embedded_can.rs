@@ -1,6 +1,6 @@
 //! `embedded_can` trait impls.
 
-use crate::{Can, Data, ExtendedId, Frame, Id, Instance, StandardId};
+use crate::{Can, Data, ExtendedId, Frame, Id, Instance, OverrunError, StandardId};
 use embedded_can_03 as embedded_can;
 
 impl<I> embedded_can::Can for Can<I>
@@ -9,7 +9,7 @@ where
 {
     type Frame = Frame;
 
-    type Error = ();
+    type Error = OverrunError;
 
     fn try_transmit(
         &mut self,
@@ -93,7 +93,7 @@ impl embedded_can::Frame for Frame {
 
     #[inline]
     fn dlc(&self) -> usize {
-        self.dlc() as usize
+        self.dlc().into()
     }
 
     fn data(&self) -> &[u8] {
