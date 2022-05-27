@@ -24,11 +24,9 @@
 //! | Feature | Description |
 //! |---------|-------------|
 //! | `unstable-defmt` | Implements [`defmt`]'s `Format` trait for the types in this crate.[^1] |
-//! | `embedded-can-03` | Implements the [`embedded-can`] 0.3 traits. |
 //!
 //! [^1]: The specific version of defmt is unspecified and may be updated in a patch release.
 //!
-//! [`embedded-can`]: https://docs.rs/embedded-can
 //! [`defmt`]: https://docs.rs/defmt
 
 #![doc(html_root_url = "https://docs.rs/bxcan/0.6.2")]
@@ -37,8 +35,6 @@
 #![no_std]
 #![allow(clippy::unnecessary_operation)] // lint is bugged
 
-#[cfg(feature = "embedded-can-03")]
-mod embedded_can;
 mod embedded_hal;
 pub mod filter;
 mod frame;

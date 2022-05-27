@@ -29,11 +29,6 @@ nb = "1.0.0"
 version = "0.2.7"
 package = "embedded-hal"
 
-[dependencies.embedded-can-03]
-version = "0.3"
-optional = true
-package = "embedded-can"
-
 [dependencies.defmt]
 optional = true
 version = ">=0.2.3,<0.4.0"
