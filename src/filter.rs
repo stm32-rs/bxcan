@@ -3,7 +3,7 @@
 use core::marker::PhantomData;
 
 use crate::pac::can::RegisterBlock;
-use crate::{ExtendedId, FilterOwner, Id, Instance, MasterInstance, StandardId};
+use crate::{ExtendedId, Fifo, FilterOwner, Id, Instance, MasterInstance, StandardId};
 
 const F32_RTR: u32 = 0b010; // set the RTR bit to match remote frames
 const F32_IDE: u32 = 0b100; // set the IDE bit to match extended identifiers
@@ -274,8 +274,25 @@ impl<I: FilterOwner> MasterFilters<'_, I> {
     }
 
     /// Configures a filter bank according to `config` and enables it.
-    pub fn enable_bank(&mut self, index: u8, config: impl Into<BankConfig>) -> &mut Self {
-        self.banks_imm().enable(index, config.into());
+    ///
+    /// Each filter bank is associated with one of the two RX FIFOs, configured by the [`Fifo`]
+    /// passed to this function. In the event that both FIFOs are configured to accept an incoming
+    /// frame, the accepting filter bank with the lowest index wins. The FIFO state is ignored, so
+    /// if the FIFO is full, it will overflow, even if the other FIFO is also configured to accept
+    /// the frame.
+    ///
+    /// # Parameters
+    ///
+    /// - `index`: the filter index.
+    /// - `fifo`: the receive FIFO the filter should pass accepted messages to.
+    /// - `config`: the filter configuration.
+    pub fn enable_bank(
+        &mut self,
+        index: u8,
+        fifo: Fifo,
+        config: impl Into<BankConfig>,
+    ) -> &mut Self {
+        self.banks_imm().enable(index, fifo, config.into());
         self
     }
 }
@@ -357,8 +374,19 @@ impl<I: Instance> SlaveFilters<'_, I> {
     }
 
     /// Configures a filter bank according to `config` and enables it.
-    pub fn enable_bank(&mut self, index: u8, config: impl Into<BankConfig>) -> &mut Self {
-        self.banks_imm().enable(index, config.into());
+    ///
+    /// # Parameters
+    ///
+    /// - `index`: the filter index.
+    /// - `fifo`: the receive FIFO the filter should pass accepted messages to.
+    /// - `config`: the filter configuration.
+    pub fn enable_bank(
+        &mut self,
+        index: u8,
+        fifo: Fifo,
+        config: impl Into<BankConfig>,
+    ) -> &mut Self {
+        self.banks_imm().enable(index, fifo, config.into());
         self
     }
 }
@@ -392,7 +420,7 @@ impl FilterBanks<'_> {
             .modify(|r, w| unsafe { w.bits(r.bits() & !(1 << index)) })
     }
 
-    fn enable(&mut self, index: u8, config: BankConfig) {
+    fn enable(&mut self, index: u8, fifo: Fifo, config: BankConfig) {
         self.assert_bank_index(index);
 
         // Configure mode.
@@ -442,6 +470,16 @@ impl FilterBanks<'_> {
         let bank = &self.can.fb[usize::from(index)];
         bank.fr1.write(|w| unsafe { w.bits(fxr1) });
         bank.fr2.write(|w| unsafe { w.bits(fxr2) });
+
+        // Assign to the right FIFO
+        self.can.ffa1r.modify(|r, w| unsafe {
+            let mut bits = r.bits();
+            match fifo {
+                Fifo::Fifo0 => bits &= !(1 << index),
+                Fifo::Fifo1 => bits |= 1 << index,
+            }
+            w.bits(bits)
+        });
 
         // Set active.
         self.can

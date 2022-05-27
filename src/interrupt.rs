@@ -3,7 +3,7 @@
 use core::ops;
 
 #[allow(unused_imports)] // for intra-doc links only
-use crate::{Can, Rx};
+use crate::{Can, Rx0};
 
 /// bxCAN interrupt sources.
 ///

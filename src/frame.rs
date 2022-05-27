@@ -113,6 +113,8 @@ impl PartialEq for Frame {
 
 /// Priority of a CAN frame.
 ///
+/// Returned by [`Frame::priority`].
+///
 /// The priority of a frame is determined by the bits that are part of the *arbitration field*.
 /// These consist of the frame identifier bits (including the *IDE* bit, which is 0 for extended
 /// frames and 1 for standard frames), as well as the *RTR* bit, which determines whether a frame

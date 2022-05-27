@@ -149,14 +149,31 @@ impl State {
             .enable();
     }
 
-    pub fn roundtrip_frame(&mut self, frame: &Frame) -> bool {
+    pub fn roundtrip_frame_fifo0(&mut self, frame: &Frame) -> bool {
         nb::block!(self.can1.transmit(frame)).unwrap();
         defmt::assert!(!self.can1.is_transmitter_idle());
 
         // Wait until the transmission has completed.
         while !self.can1.is_transmitter_idle() {}
 
-        match self.can1.receive() {
+        match self.can1.rx0().receive() {
+            Ok(received) => {
+                defmt::assert_eq!(received, *frame);
+                true
+            }
+            Err(nb::Error::WouldBlock) => false,
+            Err(nb::Error::Other(e)) => defmt::panic!("{:?}", e),
+        }
+    }
+
+    pub fn roundtrip_frame_fifo1(&mut self, frame: &Frame) -> bool {
+        nb::block!(self.can1.transmit(frame)).unwrap();
+        defmt::assert!(!self.can1.is_transmitter_idle());
+
+        // Wait until the transmission has completed.
+        while !self.can1.is_transmitter_idle() {}
+
+        match self.can1.rx1().receive() {
             Ok(received) => {
                 defmt::assert_eq!(received, *frame);
                 true

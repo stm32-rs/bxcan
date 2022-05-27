@@ -6,7 +6,7 @@ mod tests {
     use core::sync::atomic::{AtomicBool, Ordering};
 
     use bxcan::{filter::Mask32, Interrupts, Mailbox, StandardId};
-    use bxcan::{Frame, Interrupt};
+    use bxcan::{Fifo, Frame, Interrupt};
 
     use irq::handler;
     use nb::block;
@@ -25,10 +25,10 @@ mod tests {
             .modify_filters()
             .set_split(1)
             .clear()
-            .enable_bank(0, Mask32::accept_all())
+            .enable_bank(0, Fifo::Fifo0, Mask32::accept_all())
             .slave_filters()
             .clear()
-            .enable_bank(1, Mask32::accept_all());
+            .enable_bank(1, Fifo::Fifo0, Mask32::accept_all());
 
         state
     }
@@ -58,7 +58,7 @@ mod tests {
 
             defmt::assert!(!tx_fired.load(Ordering::Relaxed));
             let frame = Frame::new_data(StandardId::new(0).unwrap(), []);
-            defmt::assert!(m.lock(|state| state.roundtrip_frame(&frame)));
+            defmt::assert!(m.lock(|state| state.roundtrip_frame_fifo0(&frame)));
             defmt::assert!(tx_fired.load(Ordering::Relaxed));
         });
 
@@ -108,7 +108,7 @@ mod tests {
         let m = Mutex::new(&mut *state);
         let interrupt_fired = AtomicBool::new(false);
         handler!(
-            can1_rx = || {
+            can1_rx0 = || {
                 defmt::debug!("interrupt: FIFO 0 is full");
                 let frame = m.lock(|state| state.can1.receive().unwrap());
                 defmt::debug!("received {:?}", frame);
@@ -121,7 +121,7 @@ mod tests {
             }
         );
         irq::scope(|scope| {
-            scope.register(interrupt::CAN1_RX0, can1_rx);
+            scope.register(interrupt::CAN1_RX0, can1_rx0);
 
             let frame = Frame::new_data(StandardId::new(0).unwrap(), []);
             defmt::debug!("transmitting {:?} 3 times", frame);
@@ -148,7 +148,7 @@ mod tests {
         let m = Mutex::new(&mut *state);
         let interrupt_fired = AtomicBool::new(false);
         handler!(
-            can1_rx = || {
+            can1_rx0 = || {
                 defmt::debug!("interrupt: FIFO 0 overrun");
                 m.lock(|state| state.can1.receive().unwrap_err());
 
@@ -156,7 +156,7 @@ mod tests {
             }
         );
         irq::scope(|scope| {
-            scope.register(interrupt::CAN1_RX0, can1_rx);
+            scope.register(interrupt::CAN1_RX0, can1_rx0);
 
             let frame = Frame::new_data(StandardId::new(0).unwrap(), []);
             defmt::debug!("transmitting {:?} 4 times", frame);

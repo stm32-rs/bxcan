@@ -653,10 +653,13 @@ where
 
     /// Puts a CAN frame in a free transmit mailbox for transmission on the bus.
     ///
-    /// Frames are transmitted to the bus based on their priority (identifier).
-    /// Transmit order is preserved for frames with identical identifiers.
-    /// If all transmit mailboxes are full, a higher priority frame replaces the
-    /// lowest priority frame, which is returned as `Ok(Some(frame))`.
+    /// Frames are transmitted to the bus based on their priority (see [`FramePriority`]).
+    /// Transmit order is preserved for frames with identical priority.
+    ///
+    /// If all transmit mailboxes are full, and `frame` has a higher priority than the
+    /// lowest-priority message in the transmit mailboxes, transmission of the enqueued frame is
+    /// cancelled and `frame` is enqueued instead. The frame that was replaced is returned as
+    /// [`TransmitStatus::dequeued_frame`].
     pub fn transmit(&mut self, frame: &Frame) -> nb::Result<TransmitStatus, Infallible> {
         // Safety: We have a `&mut self` and have unique access to the peripheral.
         unsafe { Tx::<I>::conjure().transmit(frame) }
@@ -682,23 +685,46 @@ where
 
     /// Returns a received frame if available.
     ///
+    /// This will first check FIFO 0 for a message or error. If none are available, FIFO 1 is
+    /// checked.
+    ///
     /// Returns `Err` when a frame was lost due to buffer overrun.
     pub fn receive(&mut self) -> nb::Result<Frame, OverrunError> {
         // Safety: We have a `&mut self` and have unique access to the peripheral.
-        unsafe { Rx::<I>::conjure().receive() }
+        let mut rx0 = unsafe { Rx0::<I>::conjure() };
+        let mut rx1 = unsafe { Rx1::<I>::conjure() };
+
+        match rx0.receive() {
+            Err(nb::Error::WouldBlock) => rx1.receive(),
+            result => result,
+        }
+    }
+
+    /// Returns a reference to the RX FIFO 0.
+    pub fn rx0(&mut self) -> &mut Rx0<I> {
+        // Safety: We take `&mut self` and the return value lifetimes are tied to `self`'s lifetime.
+        unsafe { Rx0::conjure_by_ref() }
+    }
+
+    /// Returns a reference to the RX FIFO 1.
+    pub fn rx1(&mut self) -> &mut Rx1<I> {
+        // Safety: We take `&mut self` and the return value lifetimes are tied to `self`'s lifetime.
+        unsafe { Rx1::conjure_by_ref() }
     }
 
     /// Splits this `Can` instance into transmitting and receiving halves, by reference.
-    pub fn split_by_ref(&mut self) -> (&mut Tx<I>, &mut Rx<I>) {
+    pub fn split_by_ref(&mut self) -> (&mut Tx<I>, &mut Rx0<I>, &mut Rx1<I>) {
         // Safety: We take `&mut self` and the return value lifetimes are tied to `self`'s lifetime.
         let tx = unsafe { Tx::conjure_by_ref() };
-        let rx = unsafe { Rx::conjure_by_ref() };
-        (tx, rx)
+        let rx0 = unsafe { Rx0::conjure_by_ref() };
+        let rx1 = unsafe { Rx1::conjure_by_ref() };
+        (tx, rx0, rx1)
     }
 
     /// Consumes this `Can` instance and splits it into transmitting and receiving halves.
-    pub fn split(self) -> (Tx<I>, Rx<I>) {
-        unsafe { (Tx::conjure(), Rx::conjure()) }
+    pub fn split(self) -> (Tx<I>, Rx0<I>, Rx1<I>) {
+        // Safety: `Self` is not `Copy` and is destroyed by moving it into this method.
+        unsafe { (Tx::conjure(), Rx0::conjure(), Rx1::conjure()) }
     }
 }
 
@@ -752,11 +778,13 @@ where
 
     /// Puts a CAN frame in a transmit mailbox for transmission on the bus.
     ///
-    /// Frames are transmitted to the bus based on their priority (identifier). Transmit order is
-    /// preserved for frames with identical identifiers.
+    /// Frames are transmitted to the bus based on their priority (see [`FramePriority`]).
+    /// Transmit order is preserved for frames with identical priority.
     ///
-    /// If all transmit mailboxes are full, a higher priority frame can replace a lower-priority
-    /// frame, which is returned in the [`TransmitStatus`].
+    /// If all transmit mailboxes are full, and `frame` has a higher priority than the
+    /// lowest-priority message in the transmit mailboxes, transmission of the enqueued frame is
+    /// cancelled and `frame` is enqueued instead. The frame that was replaced is returned as
+    /// [`TransmitStatus::dequeued_frame`].
     pub fn transmit(&mut self, frame: &Frame) -> nb::Result<TransmitStatus, Infallible> {
         let can = self.registers();
 
@@ -927,12 +955,12 @@ where
     }
 }
 
-/// Interface to the CAN receiver part.
-pub struct Rx<I> {
+/// Interface to receiver FIFO 0.
+pub struct Rx0<I> {
     _can: PhantomData<I>,
 }
 
-impl<I> Rx<I>
+impl<I> Rx0<I>
 where
     I: Instance,
 {
@@ -955,52 +983,91 @@ where
     ///
     /// Returns `Err` when a frame was lost due to buffer overrun.
     pub fn receive(&mut self) -> nb::Result<Frame, OverrunError> {
-        match self.receive_fifo(0) {
-            Err(nb::Error::WouldBlock) => self.receive_fifo(1),
-            result => result,
-        }
+        receive_fifo(self.registers(), 0)
     }
 
     fn registers(&self) -> &RegisterBlock {
         unsafe { &*I::REGISTERS }
     }
+}
 
-    fn receive_fifo(&mut self, fifo_nr: usize) -> nb::Result<Frame, OverrunError> {
-        let can = self.registers();
+/// Interface to receiver FIFO 1.
+pub struct Rx1<I> {
+    _can: PhantomData<I>,
+}
 
-        assert!(fifo_nr < 2);
-        let rfr = &can.rfr[fifo_nr];
-        let rx = &can.rx[fifo_nr];
+impl<I> Rx1<I>
+where
+    I: Instance,
+{
+    unsafe fn conjure() -> Self {
+        Self { _can: PhantomData }
+    }
 
-        // Check if a frame is available in the mailbox.
-        let rfr_read = rfr.read();
-        if rfr_read.fmp().bits() == 0 {
-            return Err(nb::Error::WouldBlock);
-        }
+    /// Creates a `&mut Self` out of thin air.
+    ///
+    /// This is only safe if it is the only way to access an `Rx<I>`.
+    unsafe fn conjure_by_ref<'a>() -> &'a mut Self {
+        // Cause out of bounds access when `Self` is not zero-sized.
+        [()][core::mem::size_of::<Self>()];
 
-        // Check for RX FIFO overrun.
-        if rfr_read.fovr().bit_is_set() {
-            rfr.write(|w| w.fovr().set_bit());
-            return Err(nb::Error::Other(OverrunError { _priv: () }));
-        }
+        // Any aligned pointer is valid for ZSTs.
+        &mut *NonNull::dangling().as_ptr()
+    }
 
-        // Read the frame.
-        let mut frame = Frame {
-            id: IdReg(rx.rir.read().bits()),
-            data: [0; 8].into(),
-        };
-        frame.data[0..4].copy_from_slice(&rx.rdlr.read().bits().to_ne_bytes());
-        frame.data[4..8].copy_from_slice(&rx.rdhr.read().bits().to_ne_bytes());
-        frame.data.len = rx.rdtr.read().dlc().bits();
+    /// Returns a received frame if available.
+    ///
+    /// Returns `Err` when a frame was lost due to buffer overrun.
+    pub fn receive(&mut self) -> nb::Result<Frame, OverrunError> {
+        receive_fifo(self.registers(), 1)
+    }
 
-        // Release the mailbox.
-        rfr.write(|w| w.rfom().set_bit());
-
-        Ok(frame)
+    fn registers(&self) -> &RegisterBlock {
+        unsafe { &*I::REGISTERS }
     }
 }
 
-/// The three transmit mailboxes.
+fn receive_fifo(can: &RegisterBlock, fifo_nr: usize) -> nb::Result<Frame, OverrunError> {
+    assert!(fifo_nr < 2);
+    let rfr = &can.rfr[fifo_nr];
+    let rx = &can.rx[fifo_nr];
+
+    // Check if a frame is available in the mailbox.
+    let rfr_read = rfr.read();
+    if rfr_read.fmp().bits() == 0 {
+        return Err(nb::Error::WouldBlock);
+    }
+
+    // Check for RX FIFO overrun.
+    if rfr_read.fovr().bit_is_set() {
+        rfr.write(|w| w.fovr().set_bit());
+        return Err(nb::Error::Other(OverrunError { _priv: () }));
+    }
+
+    // Read the frame.
+    let mut frame = Frame {
+        id: IdReg(rx.rir.read().bits()),
+        data: [0; 8].into(),
+    };
+    frame.data[0..4].copy_from_slice(&rx.rdlr.read().bits().to_ne_bytes());
+    frame.data[4..8].copy_from_slice(&rx.rdhr.read().bits().to_ne_bytes());
+    frame.data.len = rx.rdtr.read().dlc().bits();
+
+    // Release the mailbox.
+    rfr.write(|w| w.rfom().set_bit());
+
+    Ok(frame)
+}
+
+/// Identifies one of the two receive FIFOs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "unstable-defmt", derive(defmt::Format))]
+pub enum Fifo {
+    Fifo0 = 0,
+    Fifo1 = 1,
+}
+
+/// Identifies one of the three transmit mailboxes.
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 #[cfg_attr(feature = "unstable-defmt", derive(defmt::Format))]
 pub enum Mailbox {
