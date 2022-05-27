@@ -40,7 +40,6 @@ pub mod filter;
 mod frame;
 mod id;
 mod interrupt;
-mod readme;
 
 #[allow(clippy::all)] // generated code
 mod pac;
