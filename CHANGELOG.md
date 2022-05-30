@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+No changes.
+
+## [0.7.0 - 2022-05-30](https://github.com/stm32-rs/bxcan/releases/tag/v0.7.0)
+
 ### New Features
 
 * [*breaking change*] Add support for using the second RX FIFO.
