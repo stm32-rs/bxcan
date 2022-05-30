@@ -33,20 +33,20 @@ pub enum Interrupt {
     /// Fires the **RX FIFO 0** interrupt when FIFO 0 holds a message.
     ///
     /// The interrupt handler must clear the interrupt condition by receiving all messages from the
-    /// FIFO by calling [`Can::receive`] or [`Rx::receive`].
+    /// FIFO by calling [`Can::receive`] or [`Rx0::receive`].
     Fifo0MessagePending = 1 << 1,
 
     /// Fires the **RX FIFO 0** interrupt when FIFO 0 holds 3 incoming messages.
     ///
     /// The interrupt handler must clear the interrupt condition by receiving at least one message
     /// from the FIFO (making it no longer "full"). This can be done by calling [`Can::receive`] or
-    /// [`Rx::receive`].
+    /// [`Rx0::receive`].
     Fifo0Full = 1 << 2,
 
     /// Fires the **RX FIFO 0** interrupt when FIFO 0 drops an incoming message.
     ///
     /// The interrupt handler must clear the interrupt condition by calling [`Can::receive`] or
-    /// [`Rx::receive`] (which will return an error).
+    /// [`Rx0::receive`] (which will return an error).
     Fifo0Overrun = 1 << 3,
 
     /// Fires the **RX FIFO 1** interrupt when FIFO 1 holds a message.
