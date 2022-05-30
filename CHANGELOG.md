@@ -2,7 +2,17 @@
 
 ## Unreleased
 
-No changes.
+### New Features
+
+* [*breaking change*] Add support for using the second RX FIFO.
+  * The `Rx` type has been renamed to `Rx0`, and an `Rx1` type has been introduced that accesses the second FIFO.
+  * `enable_bank` now takes the `Fifo` the filter should be assigned to as an additional argument.
+* Implement the `embedded-hal` 0.2.7 CAN traits.
+
+### Other Changes
+
+* [*breaking change*] Removed the `embedded-can-03` feature as the `embedded-can` crate is deprecated.
+* [*breaking change*] Use a new `OverrunError` type as the receive error instead of `()`.
 
 ## [0.6.2 - 2021-11-15](https://github.com/stm32-rs/bxcan/releases/tag/v0.6.2)
 

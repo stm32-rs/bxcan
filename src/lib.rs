@@ -13,10 +13,10 @@
 //! - Transmission respects CAN IDs and protects against priority inversion (a lower-priority frame
 //!   may be dequeued when enqueueing a higher-priority one).
 //! - Implements the [`embedded-hal`] traits for interoperability.
+//! - Support for both RX FIFOs (as [`Rx0`] and [`Rx1`]).
 //!
 //! # Limitations
 //!
-//! - Currently, only RX FIFO 0 is supported, and FIFO 1 will not be used.
 //! - Support for querying error states and handling error interrupts is incomplete.
 //!
 //! # Cargo Features
