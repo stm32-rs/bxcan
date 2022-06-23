@@ -266,9 +266,9 @@ impl<I: Instance> CanConfig<'_, I> {
     /// parameter to this method.
     pub fn set_bit_timing(self, btr: u32) -> Self {
         let can = self.can.registers();
-        can.btr.modify(|r, w| unsafe {
+        can.btr.modify(|r, w| {
             let mode_bits = r.bits() & 0xC000_0000;
-            w.bits(mode_bits | btr)
+            unsafe { w.bits(mode_bits | btr) }
         });
         self
     }
@@ -369,9 +369,9 @@ impl<I: Instance> CanBuilder<I> {
     /// parameter to this method.
     pub fn set_bit_timing(self, btr: u32) -> Self {
         let can = self.can.registers();
-        can.btr.modify(|r, w| unsafe {
+        can.btr.modify(|r, w| {
             let mode_bits = r.bits() & 0xC000_0000;
-            w.bits(mode_bits | btr)
+            unsafe { w.bits(mode_bits | btr) }
         });
         self
     }
