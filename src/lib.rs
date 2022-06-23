@@ -265,11 +265,7 @@ impl<I: Instance> CanConfig<'_, I> {
     /// Then copy the `CAN_BUS_TIME` register value from the table and pass it as the `btr`
     /// parameter to this method.
     pub fn set_bit_timing(self, btr: u32) -> Self {
-        let can = self.can.registers();
-        can.btr.modify(|r, w| unsafe {
-            let mode_bits = r.bits() & 0xC000_0000;
-            w.bits(mode_bits | btr)
-        });
+        self.can.set_bit_timing(btr);
         self
     }
 
@@ -367,12 +363,8 @@ impl<I: Instance> CanBuilder<I> {
     ///
     /// Then copy the `CAN_BUS_TIME` register value from the table and pass it as the `btr`
     /// parameter to this method.
-    pub fn set_bit_timing(self, btr: u32) -> Self {
-        let can = self.can.registers();
-        can.btr.modify(|r, w| unsafe {
-            let mode_bits = r.bits() & 0xC000_0000;
-            w.bits(mode_bits | btr)
-        });
+    pub fn set_bit_timing(mut self, btr: u32) -> Self {
+        self.can.set_bit_timing(btr);
         self
     }
 
@@ -477,6 +469,17 @@ where
 
     fn registers(&self) -> &RegisterBlock {
         unsafe { &*I::REGISTERS }
+    }
+
+    fn set_bit_timing(&mut self, btr: u32) {
+        // Mask of all non-reserved BTR bits, except the mode flags.
+        const MASK: u32 = 0x037F_03FF;
+
+        let can = self.registers();
+        can.btr.modify(|r, w| unsafe {
+            let mode_bits = r.bits() & 0xC000_0000;
+            w.bits(mode_bits | (btr & MASK))
+        });
     }
 
     /// Returns a reference to the peripheral instance.
