@@ -182,10 +182,7 @@ impl Data {
     /// Creates an unchecked data from payload and size
     #[inline]
     pub const unsafe fn new_unchecked(len: u8, bytes: [u8; 8]) -> Self {
-        Self {
-            len,
-            bytes
-        }
+        Self { len, bytes }
     }
 
     /// Creates an empty data payload containing 0 bytes.
