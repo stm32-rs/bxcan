@@ -2,9 +2,9 @@
 
 use crate::{Can, Data, ExtendedId, Frame, Id, Instance, OverrunError, StandardId};
 
-use embedded_hal_02::can;
+use embedded_can_04 as can;
 
-impl<I> can::Can for Can<I>
+impl<I> can::nb::Can for Can<I>
 where
     I: Instance,
 {
