@@ -53,7 +53,7 @@ pub use crate::pac::can::RegisterBlock;
 
 use crate::filter::MasterFilters;
 use core::cmp::{Ord, Ordering};
-use core::convert::{Infallible, TryInto};
+use core::convert::Infallible;
 use core::marker::PhantomData;
 use core::mem;
 use core::ptr::NonNull;
