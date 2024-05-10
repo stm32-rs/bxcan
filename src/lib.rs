@@ -109,10 +109,11 @@ pub unsafe trait FilterOwner: Instance {
 /// This trait must only be implemented when there is actually an associated slave instance.
 pub unsafe trait MasterInstance: FilterOwner {}
 
-// TODO: what to do with these?
-/*
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Format)]
-pub enum Error {
+/// Enum of error status codes from the error status register.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "unstable-defmt", derive(defmt::Format))]
+pub enum Error{
+    None,
     Stuff,
     Form,
     Acknowledgement,
@@ -120,7 +121,60 @@ pub enum Error {
     BitDominant,
     Crc,
     Software,
-}*/
+}
+
+/// The peripheral's current error status.
+/// 
+/// This is returned when clearing an error status interrupt.
+#[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "unstable-defmt", derive(defmt::Format))]
+pub struct ErrorStatus {
+    pub(crate) recv_count: u8,
+    pub(crate) txmt_count: u8,
+    pub(crate) code: Error,
+    pub(crate) bus_off: bool,
+    pub(crate) err_passive: bool,
+    pub(crate) err_warning: bool,
+}
+
+impl ErrorStatus {
+    /// The receive error counter.
+    #[inline]
+    pub fn receive_counter(&self) -> u8 {
+        self.recv_count
+    }
+
+    /// The transmit error counter.
+    #[inline]
+    pub fn transmit_counter(&self) -> u8 {
+        self.recv_count
+    }
+
+    /// The last error code.
+    #[inline]
+    pub fn last_error(&self) -> Error {
+        self.code
+    }
+
+    /// Returns true if the peripheral is currently in bus-off.
+    #[inline]
+    pub fn bus_off(&self) -> bool {
+        self.bus_off
+    }
+
+    /// Returns true if the error passive limit has been reached.
+    #[inline]
+    pub fn error_passive(&self) -> bool {
+        self.err_passive
+    }
+
+    /// Returns true if the error warning limit has been reached.
+    #[inline]
+    pub fn error_warning(&self) -> bool {
+        self.err_warning
+    }
+}
+
 
 /// Error that indicates that an incoming message has been lost due to buffer overrun.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -648,6 +702,35 @@ where
     /// information, call [`Can::clear_request_completed_flag`] instead.
     pub fn clear_tx_interrupt(&mut self) {
         while self.clear_request_completed_flag().is_some() {}
+    }
+
+    /// Clears the error interrupt flag ([`Interrupt::Error`]).
+    /// 
+    /// This will return an [`ErrorStatus`] containing information on the error.
+    pub fn clear_error_interrupt(&mut self) -> ErrorStatus {
+        let can = self.registers();
+        let esr = can.esr.read();
+
+        let stat = ErrorStatus {
+            recv_count: esr.rec().bits,
+            txmt_count: esr.tec().bits,
+            code: (match esr.lec().bits {
+                0b000 => Error::None,
+                0b001 => Error::Stuff,
+                0b010 => Error::Form,
+                0b011 => Error::Acknowledgement,
+                0b100 => Error::BitRecessive,
+                0b101 => Error::BitDominant,
+                0b110 => Error::Crc,
+                0b111 => Error::Software,
+                _ => unreachable!(),
+            }),
+            bus_off: esr.boff().bits,
+            err_passive: esr.epvf().bits,
+            err_warning: esr.ewgf().bits
+        };
+        can.msr.write(|w| w.erri().set_bit());
+        stat
     }
 
     /// Puts a CAN frame in a free transmit mailbox for transmission on the bus.
