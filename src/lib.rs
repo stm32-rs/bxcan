@@ -709,9 +709,17 @@ where
     /// This will return an [`ErrorStatus`] containing information on the error.
     pub fn clear_error_interrupt(&mut self) -> ErrorStatus {
         let can = self.registers();
+        let stat = self.error_status();
+        can.msr.write(|w| w.erri().set_bit());
+        stat
+    }
+
+    /// Reads the error status register's data as an [`ErrorStatus`].
+    pub fn error_status(&self) -> ErrorStatus {
+        let can = self.registers();
         let esr = can.esr.read();
 
-        let stat = ErrorStatus {
+        ErrorStatus {
             recv_count: esr.rec().bits,
             txmt_count: esr.tec().bits,
             code: (match esr.lec().bits {
@@ -728,9 +736,7 @@ where
             bus_off: esr.boff().bits,
             err_passive: esr.epvf().bits,
             err_warning: esr.ewgf().bits
-        };
-        can.msr.write(|w| w.erri().set_bit());
-        stat
+        }
     }
 
     /// Puts a CAN frame in a free transmit mailbox for transmission on the bus.
