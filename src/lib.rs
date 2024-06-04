@@ -155,7 +155,7 @@ impl ErrorStatus {
     }
 
     /// Returns true if the peripheral is currently in bus-off.
-    /// 
+    ///
     /// This occurs when the transmit error counter overflows past 255.
     #[inline]
     pub fn bus_off(&self) -> bool {
@@ -163,7 +163,7 @@ impl ErrorStatus {
     }
 
     /// Returns true if the error passive limit has been reached.
-    /// 
+    ///
     /// This occurs when the receive or transmit error counters exceed 127.
     #[inline]
     pub fn error_passive(&self) -> bool {
@@ -171,14 +171,13 @@ impl ErrorStatus {
     }
 
     /// Returns true if the error warning limit has been reached.
-    /// 
+    ///
     /// This occurs when the receive or transmit error counters are greater than or equal 96.
     #[inline]
     pub fn error_warning(&self) -> bool {
         self.err_warning
     }
 }
-
 
 /// Error that indicates that an incoming message has been lost due to buffer overrun.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -709,7 +708,7 @@ where
     }
 
     /// Clears the error interrupt flag ([`Interrupt::Error`]).
-    /// 
+    ///
     /// To read the error status, use [`Can::error_status`] to get the [`ErrorStatus`] before
     /// clearing the interrupt flag.
     pub fn clear_error_interrupt(&mut self) {
@@ -740,7 +739,7 @@ where
             }),
             bus_off: esr.boff().bits,
             err_passive: esr.epvf().bits,
-            err_warning: esr.ewgf().bits
+            err_warning: esr.ewgf().bits,
         }
     }
 

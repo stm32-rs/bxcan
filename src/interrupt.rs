@@ -66,41 +66,41 @@ pub enum Interrupt {
 
     /// Fires the **SCE** interrupt when the error warning limit (receive or transmit error counter
     /// >= 96) has been reached.
-    /// 
+    ///
     /// [`Interrupt::Error`] must also be enabled for the interrupt to fire.
-    /// 
+    ///
     /// The interrupt handler must clear the interrupt condition by calling
     /// [`Can::clear_error_interrupt`].
     ErrorWarning = 1 << 8,
 
     /// Fires the **SCE** interrupt when the peripheral enters the error passive state.
-    /// 
+    ///
     /// [`Interrupt::Error`] must also be enabled for the interrupt to fire.
-    /// 
+    ///
     /// The interrupt handler must clear the interrupt condition by calling
     /// [`Can::clear_error_interrupt`].
     ErrorPassive = 1 << 9,
 
     /// Fires the **SCE** interrupt when the peripheral has entered bus-off.
-    /// 
+    ///
     /// [`Interrupt::Error`] must also be enabled for the interrupt to fire.
-    /// 
+    ///
     /// The interrupt handler must clear the interrupt condition by calling
     /// [`Can::clear_error_interrupt`].
     BusOff = 1 << 10,
 
     /// Fires the **SCE** interrupt when the peripheral updates the last error code.
-    /// 
+    ///
     /// [`Interrupt::Error`] must also be enabled for the interrupt to fire.
-    /// 
+    ///
     /// The interrupt handler must clear the interrupt condition by calling
     /// [`Can::clear_error_interrupt`].
     LastErrorCode = 1 << 11,
 
     /// Fires the **SCE** interrupt when the peripheral enters an error state.
-    /// 
+    ///
     /// The error states that will cause the interrupt to fire are determined by the subset of
-    /// [`Interrupt::ErrorWarning`], [`Interrupt::ErrorPassive`], [`Interrupt::BusOff`], and 
+    /// [`Interrupt::ErrorWarning`], [`Interrupt::ErrorPassive`], [`Interrupt::BusOff`], and
     /// [`Interrupt::LastErrorCode`] that are enabled along with this flag.
     ///
     /// The interrupt handler must clear the interrupt condition by calling
