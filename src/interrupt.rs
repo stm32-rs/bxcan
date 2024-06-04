@@ -64,6 +64,47 @@ pub enum Interrupt {
     /// Behavior is otherwise identical to [`Self::Fifo0Overrun`].
     Fifo1Overrun = 1 << 6,
 
+    /// Fires the **SCE** interrupt when the error warning limit (receive or transmit error counter
+    /// >= 96) has been reached.
+    /// 
+    /// [`Interrupt::Error`] must also be enabled for the interrupt to fire.
+    /// 
+    /// The interrupt handler must clear the interrupt condition by calling
+    /// [`Can::clear_error_interrupt`].
+    ErrorWarning = 1 << 8,
+
+    /// Fires the **SCE** interrupt when the peripheral enters the error passive state.
+    /// 
+    /// [`Interrupt::Error`] must also be enabled for the interrupt to fire.
+    /// 
+    /// The interrupt handler must clear the interrupt condition by calling
+    /// [`Can::clear_error_interrupt`].
+    ErrorPassive = 1 << 9,
+
+    /// Fires the **SCE** interrupt when the peripheral has entered bus-off.
+    /// 
+    /// [`Interrupt::Error`] must also be enabled for the interrupt to fire.
+    /// 
+    /// The interrupt handler must clear the interrupt condition by calling
+    /// [`Can::clear_error_interrupt`].
+    BusOff = 1 << 10,
+
+    /// Fires the **SCE** interrupt when the peripheral updates the last error code.
+    /// 
+    /// [`Interrupt::Error`] must also be enabled for the interrupt to fire.
+    /// 
+    /// The interrupt handler must clear the interrupt condition by calling
+    /// [`Can::clear_error_interrupt`].
+    LastErrorCode = 1 << 11,
+
+    /// Fires the **SCE** interrupt when the peripheral enters an error state.
+    /// 
+    /// The error states that will cause the interrupt to fire are determined by the subset of
+    /// [`Interrupt::ErrorWarning`], [`Interrupt::ErrorPassive`], [`Interrupt::BusOff`], and 
+    /// [`Interrupt::LastErrorCode`] that are enabled along with this flag.
+    ///
+    /// The interrupt handler must clear the interrupt condition by calling
+    /// [`Can::clear_error_interrupt`].
     Error = 1 << 15,
 
     /// Fires the **SCE** interrupt when an incoming CAN frame is detected while the peripheral is
@@ -90,6 +131,10 @@ bitflags::bitflags! {
         const FIFO1_MESSAGE_PENDING = 1 << 4;
         const FIFO1_FULL = 1 << 5;
         const FIFO1_OVERRUN = 1 << 6;
+        const ERROR_WARNING = 1 << 8;
+        const ERROR_PASSIVE = 1 << 9;
+        const BUS_OFF = 1 << 10;
+        const LAST_ERROR_CODE = 1 << 11;
         const ERROR = 1 << 15;
         const WAKEUP = 1 << 16;
         const SLEEP = 1 << 17;

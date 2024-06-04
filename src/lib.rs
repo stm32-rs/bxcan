@@ -112,7 +112,7 @@ pub unsafe trait MasterInstance: FilterOwner {}
 /// Enum of error status codes from the error status register.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "unstable-defmt", derive(defmt::Format))]
-pub enum Error{
+pub enum Error {
     None,
     Stuff,
     Form,
@@ -124,8 +124,6 @@ pub enum Error{
 }
 
 /// The peripheral's current error status.
-/// 
-/// This is returned when clearing an error status interrupt.
 #[derive(Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "unstable-defmt", derive(defmt::Format))]
 pub struct ErrorStatus {
@@ -157,18 +155,24 @@ impl ErrorStatus {
     }
 
     /// Returns true if the peripheral is currently in bus-off.
+    /// 
+    /// This occurs when the transmit error counter overflows past 255.
     #[inline]
     pub fn bus_off(&self) -> bool {
         self.bus_off
     }
 
     /// Returns true if the error passive limit has been reached.
+    /// 
+    /// This occurs when the receive or transmit error counters exceed 127.
     #[inline]
     pub fn error_passive(&self) -> bool {
         self.err_passive
     }
 
     /// Returns true if the error warning limit has been reached.
+    /// 
+    /// This occurs when the receive or transmit error counters are greater than or equal 96.
     #[inline]
     pub fn error_warning(&self) -> bool {
         self.err_warning
@@ -706,15 +710,16 @@ where
 
     /// Clears the error interrupt flag ([`Interrupt::Error`]).
     /// 
-    /// This will return an [`ErrorStatus`] containing information on the error.
-    pub fn clear_error_interrupt(&mut self) -> ErrorStatus {
+    /// To read the error status, use [`Can::error_status`] to get the [`ErrorStatus`] before
+    /// clearing the interrupt flag.
+    pub fn clear_error_interrupt(&mut self) {
         let can = self.registers();
-        let stat = self.error_status();
         can.msr.write(|w| w.erri().set_bit());
-        stat
     }
 
-    /// Reads the error status register's data as an [`ErrorStatus`].
+    /// Reads the error status register's data.
+    ///
+    /// This does not clear the error interrupt flag.
     pub fn error_status(&self) -> ErrorStatus {
         let can = self.registers();
         let esr = can.esr.read();
