@@ -45,7 +45,6 @@ lto = true
 # cargo-release configuration
 [package.metadata.release]
 tag-message = "{{version}}"
-dev-version = false
 pre-release-commit-message = "Release {{version}}"
 
 # Change the changelog's `Unreleased` section to refer to this release and
