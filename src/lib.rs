@@ -30,7 +30,7 @@
 //! [`defmt`]: https://docs.rs/defmt
 //! [`embedded-hal`]: https://docs.rs/embedded-hal
 
-#![doc(html_root_url = "https://docs.rs/bxcan/0.7.0")]
+#![doc(html_root_url = "https://docs.rs/bxcan/0.8.0")]
 // Deny a few warnings in doctests, since rustdoc `allow`s many warnings by default
 #![doc(test(attr(deny(unused_imports, unused_must_use))))]
 #![no_std]

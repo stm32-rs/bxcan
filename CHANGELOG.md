@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+No changes.
+
+## [0.8.0 - 2024-09-17](https://github.com/stm32-rs/bxcan/releases/tag/v0.8.0)
+
 ### Fixes
 
 * Mask out all reserved bits in `set_bit_timing` before writing the register.
