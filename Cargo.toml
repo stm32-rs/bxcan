@@ -25,9 +25,9 @@ bitflags = "1.2.1"
 vcell = "0.1.2"
 nb = "1.0.0"
 
-[dependencies.embedded-hal-02]
-version = "0.2.7"
-package = "embedded-hal"
+[dependencies.embedded-can-04]
+version = "0.4.1"
+package = "embedded-can"
 
 [dependencies.defmt]
 optional = true
