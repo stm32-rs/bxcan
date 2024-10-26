@@ -15,10 +15,6 @@
 //! - Implements the [`embedded-hal`] traits for interoperability.
 //! - Support for both RX FIFOs (as [`Rx0`] and [`Rx1`]).
 //!
-//! # Limitations
-//!
-//! - Support for querying error states and handling error interrupts is incomplete.
-//!
 //! # Cargo Features
 //!
 //! | Feature | Description |
